@@ -1,5 +1,7 @@
 ﻿const lifeCanvas = document.getElementById('life-canvas');
 const lifeTextCanvas = document.getElementById('life-text-canvas');
+const LIFE_WEBGL_PIXEL_RATIO_CAP = 1.35;
+const LIFE_TEXT_PIXEL_RATIO_CAP = 1.3;
 
 if (lifeCanvas) {
   initLifeBackground().catch((error) => {
@@ -123,7 +125,7 @@ async function initLifeBackground() {
   function resize() {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, LIFE_WEBGL_PIXEL_RATIO_CAP);
 
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(width, height, false);
@@ -154,6 +156,7 @@ async function initLifeTitle() {
   const ctx = lifeTextCanvas.getContext('2d');
   const particles = [];
   const timelineTextParticles = [];
+  const timelineParticleBuckets = [];
   const timelineItems = Array.from(document.querySelectorAll('.life-event'));
   let width = 1;
   let height = 1;
@@ -161,10 +164,14 @@ async function initLifeTitle() {
   let sourcePoints = [];
   let startedAt = performance.now();
   let scrollProgress = 0;
+  let targetScrollProgress = 0;
   let depopulationProgress = 0;
   let timelinePathPoints = [];
+  let touchStartY = null;
+  const lastTimelineReveals = [];
   const settleDuration = 1500;
   const timelineStep = 0.92;
+  const TIMELINE_VISIBLE_WINDOW = 3;
 
   function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
@@ -245,6 +252,30 @@ async function initLifeTitle() {
     return event.deltaY;
   }
 
+  function getMaxScrollProgress() {
+    return 1 + timelineItems.length * timelineStep + 0.8;
+  }
+
+  function syncScrollCue() {
+    document.body.classList.toggle(
+      'is-life-scrolled',
+      Math.max(scrollProgress, targetScrollProgress) > 0.08,
+    );
+  }
+
+  function applyScrollDistance(distance) {
+    if (distance === 0) {
+      return;
+    }
+
+    targetScrollProgress = clamp(
+      targetScrollProgress + distance / Math.max(height * 1.28, 760),
+      0,
+      getMaxScrollProgress(),
+    );
+    syncScrollCue();
+  }
+
   function handleWheel(event) {
     const distance = getWheelDistance(event);
 
@@ -253,12 +284,62 @@ async function initLifeTitle() {
     }
 
     event.preventDefault();
-    scrollProgress = clamp(
-      scrollProgress + distance / Math.max(height * 1.28, 760),
-      0,
-      1 + timelineItems.length * timelineStep + 0.8,
-    );
-    depopulationProgress = clamp(scrollProgress, 0, 1);
+    applyScrollDistance(distance);
+  }
+
+  function handleTouchStart(event) {
+    touchStartY = event.touches[0]?.clientY ?? null;
+  }
+
+  function handleTouchMove(event) {
+    const currentY = event.touches[0]?.clientY;
+
+    if (touchStartY === null || currentY === undefined) {
+      return;
+    }
+
+    event.preventDefault();
+    applyScrollDistance((touchStartY - currentY) * 1.65);
+    touchStartY = currentY;
+  }
+
+  function handleTouchEnd() {
+    touchStartY = null;
+  }
+
+  function handleKeyDown(event) {
+    const distances = {
+      ArrowDown: height * 0.34,
+      PageDown: height * 0.8,
+      ArrowUp: height * -0.34,
+      PageUp: height * -0.8,
+    };
+    let distance = distances[event.key] ?? 0;
+
+    if (event.key === ' ') {
+      distance = height * (event.shiftKey ? -0.8 : 0.8);
+    } else if (event.key === 'Home') {
+      targetScrollProgress = 0;
+      scrollProgress = 0;
+      depopulationProgress = 0;
+      syncScrollCue();
+      event.preventDefault();
+      return;
+    } else if (event.key === 'End') {
+      targetScrollProgress = getMaxScrollProgress();
+      scrollProgress = targetScrollProgress;
+      depopulationProgress = 1;
+      syncScrollCue();
+      event.preventDefault();
+      return;
+    }
+
+    if (distance === 0) {
+      return;
+    }
+
+    event.preventDefault();
+    applyScrollDistance(distance);
   }
 
   function getTimelinePath() {
@@ -271,16 +352,21 @@ async function initLifeTitle() {
       }));
     }
 
+    // Three vertical tracks (top y=25, mid y=50, bot y=75) with consecutive events
+    // cycling through tracks so any visible triple occupies all three rows. Date sits
+    // 6% above the dot, label 8% below — tight enough to read as one unit, loose
+    // enough that 2-line labels stay clear of the next track. Tracks pulled in from
+    // the edges so labels never clip at the top or bottom.
     return [
-      { x: 18, y: 76, angle: 0, labelAngle: 0 },
-      { x: 50, y: 76, angle: 0, labelAngle: 0 },
-      { x: 82, y: 76, angle: 0, labelAngle: 0 },
-      { x: 82, y: 30, angle: 0, labelAngle: 0 },
-      { x: 50, y: 30, angle: 0, labelAngle: 0 },
-      { x: 18, y: 30, angle: 0, labelAngle: 0 },
-      { x: 18, y: 54, angle: 0, labelAngle: 0 },
-      { x: 50, y: 54, angle: 0, labelAngle: 0 },
-      { x: 82, y: 54, angle: 0, labelAngle: 0 },
+      { x: 15, y: 25, dateX: 15, dateY: 19, labelX: 15, labelY: 33, angle: 0, labelAngle: 0 },
+      { x: 52, y: 50, dateX: 52, dateY: 44, labelX: 52, labelY: 58, angle: 0, labelAngle: 0 },
+      { x: 85, y: 75, dateX: 85, dateY: 69, labelX: 85, labelY: 83, angle: 0, labelAngle: 0 },
+      { x: 48, y: 25, dateX: 48, dateY: 19, labelX: 48, labelY: 33, angle: 0, labelAngle: 0 },
+      { x: 85, y: 50, dateX: 85, dateY: 44, labelX: 85, labelY: 58, angle: 0, labelAngle: 0 },
+      { x: 15, y: 75, dateX: 15, dateY: 69, labelX: 15, labelY: 83, angle: 0, labelAngle: 0 },
+      { x: 82, y: 25, dateX: 82, dateY: 19, labelX: 82, labelY: 33, angle: 0, labelAngle: 0 },
+      { x: 18, y: 50, dateX: 18, dateY: 44, labelX: 18, labelY: 58, angle: 0, labelAngle: 0 },
+      { x: 50, y: 75, dateX: 50, dateY: 69, labelX: 50, labelY: 83, angle: 0, labelAngle: 0 },
     ];
   }
 
@@ -304,12 +390,10 @@ async function initLifeTitle() {
   function getTimelineTextStyle(kind) {
     const fontStack = '"Noto Sans JP", "Roobert", Helvetica, Arial, sans-serif';
     const fontSize = kind === 'date'
-      ? clamp(width * 0.016, width < 700 ? 16 : 20, width < 700 ? 20 : 27)
-      : clamp(width * 0.018, width < 700 ? 18 : 24, width < 700 ? 24 : 32);
-    const fontWeight = kind === 'date' ? 800 : 700;
-    const tracking = kind === 'date'
-      ? clamp(width * 0.00025, 0.1, 0.5)
-      : 0;
+      ? clamp(width * 0.0175, width < 700 ? 18 : 22, width < 700 ? 25 : 34)
+      : clamp(width * 0.021, width < 700 ? 21 : 28, width < 700 ? 30 : 42);
+    const fontWeight = 400;
+    const tracking = clamp(width * 0.001, width < 700 ? 0.55 : 1.1, width < 700 ? 1.2 : 2.05);
 
     return {
       font: `${fontWeight} ${fontSize}px ${fontStack}`,
@@ -317,9 +401,30 @@ async function initLifeTitle() {
       fontWeight,
       fontStack,
       tracking,
-      wordSpacing: tracking,
-      lineHeight: fontSize * 1.22,
-      maxWidth: width < 700 ? width * 0.74 : 300,
+      wordSpacing: tracking * 2.1,
+      lineHeight: fontSize * 1.28,
+      maxWidth: width < 700 ? width * 0.8 : 460,
+    };
+  }
+
+  function getTimelineTextAnchor(point, pathPoint, eventIndex, kind) {
+    if (width < 700) {
+      return {
+        x: clamp(point.x, 130, width - 130),
+        y: point.y + (kind === 'date' ? -24 : 30),
+      };
+    }
+
+    const anchorX = kind === 'date'
+      ? pathPoint.dateX ?? pathPoint.x
+      : pathPoint.labelX ?? pathPoint.x;
+    const anchorY = kind === 'date'
+      ? pathPoint.dateY ?? pathPoint.y
+      : pathPoint.labelY ?? pathPoint.y;
+
+    return {
+      x: clamp((anchorX / 100) * width, 150, width - 150),
+      y: clamp((anchorY / 100) * height, height * 0.08, height * 0.9),
     };
   }
 
@@ -369,21 +474,31 @@ async function initLifeTitle() {
     return points;
   }
 
+  function addTimelineParticle(particle) {
+    timelineTextParticles.push(particle);
+
+    if (!timelineParticleBuckets[particle.eventIndex]) {
+      timelineParticleBuckets[particle.eventIndex] = [];
+    }
+
+    timelineParticleBuckets[particle.eventIndex].push(particle);
+  }
+
   function addTimelineTextParticles(points, eventIndex, kind) {
     if (!points || points.length === 0) {
       return;
     }
 
     const count = Math.round(clamp(
-      points.length * (kind === 'date' ? 1.35 : 1.18),
-      kind === 'date' ? 260 : 420,
-      kind === 'date' ? 980 : 1500,
+      points.length * (kind === 'date' ? 0.6 : 0.55),
+      kind === 'date' ? 320 : 480,
+      kind === 'date' ? 2600 : 6800,
     ));
 
     for (let index = 0; index < count; index += 1) {
       const point = points[Math.floor(Math.random() * points.length)];
 
-      timelineTextParticles.push({
+      addTimelineParticle({
         eventIndex,
         kind,
         originX: point.x + randomBetween(-44, 44),
@@ -391,11 +506,11 @@ async function initLifeTitle() {
         targetX: point.x,
         targetY: point.y,
         targetAlpha: kind === 'date'
-          ? Math.max(0.72, point.alpha)
-          : Math.max(0.78, point.alpha),
+          ? Math.max(0.64, point.alpha * 0.84)
+          : Math.max(0.68, point.alpha * 0.88),
         size: kind === 'date'
-          ? randomBetween(width < 700 ? 1.12 : 1.35, width < 700 ? 2.05 : 2.55)
-          : randomBetween(width < 700 ? 1.22 : 1.45, width < 700 ? 2.35 : 2.92),
+          ? randomBetween(width < 700 ? 0.9 : 1.0, width < 700 ? 1.5 : 1.85)
+          : randomBetween(width < 700 ? 0.95 : 1.08, width < 700 ? 1.7 : 2.1),
         revealOffset: randomBetween(0, 0.035),
         jitter: randomBetween(0.02, 0.16),
         phase: Math.random() * Math.PI * 2,
@@ -411,7 +526,7 @@ async function initLifeTitle() {
       const angle = Math.random() * Math.PI * 2;
       const targetRadius = Math.sqrt(Math.random()) * radius;
 
-      timelineTextParticles.push({
+      addTimelineParticle({
         eventIndex,
         kind: 'dot',
         originX: point.x + randomBetween(-64, 64),
@@ -436,7 +551,7 @@ async function initLifeTitle() {
       const x = startPoint.x + (endPoint.x - startPoint.x) * lineProgress;
       const y = startPoint.y + (endPoint.y - startPoint.y) * lineProgress;
 
-      timelineTextParticles.push({
+      addTimelineParticle({
         eventIndex,
         kind: 'line',
         lineProgress,
@@ -457,6 +572,7 @@ async function initLifeTitle() {
     const path = getTimelinePath();
 
     timelineTextParticles.length = 0;
+    timelineParticleBuckets.length = 0;
 
     timelineItems.forEach((item, index) => {
       const point = path[index] || path[path.length - 1];
@@ -464,10 +580,10 @@ async function initLifeTitle() {
         x: (point.x / 100) * width,
         y: (point.y / 100) * height,
       };
-      const centerX = clamp((point.x / 100) * width, width < 700 ? 130 : 155, width - (width < 700 ? 130 : 155));
-      const centerY = (point.y / 100) * height;
       const date = item.querySelector('time')?.textContent.trim() || '';
       const label = item.querySelector('span')?.textContent.trim() || '';
+      const dateAnchor = getTimelineTextAnchor(particlePoint, point, index, 'date');
+      const labelAnchor = getTimelineTextAnchor(particlePoint, point, index, 'label');
 
       if (index > 0 && timelinePathPoints[index - 1]) {
         addLineParticles(timelinePathPoints[index - 1], particlePoint, index);
@@ -477,14 +593,14 @@ async function initLifeTitle() {
 
       const datePoints = createTimelineTextPoints({
         text: date,
-        x: centerX,
-        y: centerY - (width < 700 ? 26 : 38),
+        x: dateAnchor.x,
+        y: dateAnchor.y,
         kind: 'date',
       });
       const labelPoints = createTimelineTextPoints({
         text: label,
-        x: centerX,
-        y: centerY + (width < 700 ? 30 : 43),
+        x: labelAnchor.x,
+        y: labelAnchor.y,
         kind: 'label',
       });
 
@@ -504,55 +620,77 @@ async function initLifeTitle() {
     const lineDuration = 0.48;
     const lineParticleDuration = 0.12;
 
+    let revealProgress;
+
     if (kind === 'line') {
-      return smoothstep(
+      revealProgress = smoothstep(
         (timelineProgress - eventStart - lineProgress * lineDuration - revealOffset) / lineParticleDuration,
       );
+    } else {
+      const offset = kind === 'dot'
+        ? (eventIndex === 0 ? 0.08 : lineDuration + 0.02)
+        : kind === 'date'
+          ? (eventIndex === 0 ? dateOffset : lineDuration + dateOffset)
+          : (eventIndex === 0 ? labelOffset : lineDuration + labelOffset);
+      const duration = kind === 'dot'
+        ? dotDuration
+        : kind === 'date'
+          ? dateDuration
+          : labelDuration;
+
+      revealProgress = smoothstep((timelineProgress - eventStart - offset - revealOffset) / duration);
     }
 
-    const offset = kind === 'dot'
-      ? (eventIndex === 0 ? 0.08 : lineDuration + 0.02)
-      : kind === 'date'
-        ? (eventIndex === 0 ? dateOffset : lineDuration + dateOffset)
-        : (eventIndex === 0 ? labelOffset : lineDuration + labelOffset);
-    const duration = kind === 'dot'
-      ? dotDuration
-      : kind === 'date'
-        ? dateDuration
-        : labelDuration;
+    const fadeStart = (eventIndex + TIMELINE_VISIBLE_WINDOW) * timelineStep + 0.08;
+    const fadeProgress = smoothstep((timelineProgress - fadeStart) / 0.5);
 
-    return smoothstep((timelineProgress - eventStart - offset - revealOffset) / duration);
+    return revealProgress * (1 - fadeProgress);
   }
 
   function drawTimelineText(time) {
-    timelineTextParticles.forEach((particle) => {
-      const progress = getTimelinePartProgress(
-        particle.eventIndex,
-        particle.kind,
-        particle.revealOffset,
-        particle.lineProgress || 0,
-      );
+    const timelineProgress = Math.max(0, scrollProgress - 1);
+    const lastVisibleEvent = Math.min(
+      timelineItems.length - 1,
+      Math.ceil((timelineProgress + 1.9) / timelineStep),
+    );
 
-      if (progress <= 0.01) {
-        return;
+    for (let eventIndex = 0; eventIndex <= lastVisibleEvent; eventIndex += 1) {
+      const eventParticles = timelineParticleBuckets[eventIndex];
+
+      if (!eventParticles) {
+        continue;
       }
 
-      const textParticle = particle.kind === 'date' || particle.kind === 'label';
-      const shimmer = Math.sin(time * 0.004 + particle.phase)
-        * particle.jitter
-        * (textParticle ? 0.08 : 0.2 + progress * 0.35);
-      const x = particle.originX + (particle.targetX - particle.originX) * progress;
-      const y = particle.originY + (particle.targetY - particle.originY) * progress;
+      for (let index = 0; index < eventParticles.length; index += 1) {
+        const particle = eventParticles[index];
+        const progress = getTimelinePartProgress(
+          particle.eventIndex,
+          particle.kind,
+          particle.revealOffset,
+          particle.lineProgress || 0,
+        );
 
-      ctx.globalAlpha = particle.targetAlpha * progress;
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(
-        x + shimmer,
-        y - shimmer * 0.4,
-        particle.size,
-        particle.size,
-      );
-    });
+        if (progress <= 0.01) {
+          continue;
+        }
+
+        const textParticle = particle.kind === 'date' || particle.kind === 'label';
+        const shimmer = Math.sin(time * 0.004 + particle.phase)
+          * particle.jitter
+          * (textParticle ? 0.08 : 0.2 + progress * 0.35);
+        const x = particle.originX + (particle.targetX - particle.originX) * progress;
+        const y = particle.originY + (particle.targetY - particle.originY) * progress;
+
+        ctx.globalAlpha = particle.targetAlpha * progress;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(
+          x + shimmer,
+          y - shimmer * 0.4,
+          particle.size,
+          particle.size,
+        );
+      }
+    }
   }
 
   function updateTimeline() {
@@ -560,6 +698,13 @@ async function initLifeTitle() {
 
     timelineItems.forEach((item, index) => {
       const revealProgress = smoothstep((timelineProgress - index * timelineStep - 0.08) / 0.2);
+      const previousRevealProgress = lastTimelineReveals[index] ?? -1;
+
+      if (Math.abs(revealProgress - previousRevealProgress) < 0.002) {
+        return;
+      }
+
+      lastTimelineReveals[index] = revealProgress;
 
       item.style.setProperty('--event-progress', revealProgress.toFixed(3));
       item.style.setProperty('--event-opacity', '0');
@@ -639,9 +784,9 @@ async function initLifeTitle() {
 
   function createParticles() {
     const count = Math.round(clamp(
-      sourcePoints.length * (width < 700 ? 0.86 : 1.08),
-      width < 700 ? 2600 : 4200,
-      width < 700 ? 6200 : 11800,
+      sourcePoints.length * (width < 700 ? 0.68 : 0.82),
+      width < 700 ? 1900 : 3000,
+      width < 700 ? 4300 : 7600,
     ));
 
     particles.length = 0;
@@ -680,7 +825,7 @@ async function initLifeTitle() {
   function resize() {
     width = window.innerWidth;
     height = window.innerHeight;
-    pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    pixelRatio = Math.min(window.devicePixelRatio || 1, LIFE_TEXT_PIXEL_RATIO_CAP);
     lifeTextCanvas.width = Math.floor(width * pixelRatio);
     lifeTextCanvas.height = Math.floor(height * pixelRatio);
     lifeTextCanvas.style.width = `${width}px`;
@@ -690,10 +835,25 @@ async function initLifeTitle() {
     createParticles();
     layoutTimeline();
     buildTimelineTextParticles();
+    lastTimelineReveals.length = 0;
     updateTimeline();
   }
 
+  function updateSmoothScroll() {
+    const delta = targetScrollProgress - scrollProgress;
+
+    if (Math.abs(delta) < 0.001) {
+      scrollProgress = targetScrollProgress;
+    } else {
+      scrollProgress += delta * 0.2;
+    }
+
+    depopulationProgress = clamp(scrollProgress, 0, 1);
+  }
+
   function draw(time) {
+    updateSmoothScroll();
+
     const elapsed = Math.max(0, time - startedAt);
     const motion = clamp(1 - elapsed / settleDuration, 0, 1);
     const timelineScrim = smoothstep((scrollProgress - 0.82) / 0.46);
@@ -707,40 +867,43 @@ async function initLifeTitle() {
     }
     updateTimeline();
 
-    particles.forEach((particle) => {
-      const exitProgress = smoothstep(
-        (depopulationProgress - particle.exitStart) / particle.exitDuration,
-      );
-      const targetX = particle.targetX + (particle.originX - particle.targetX) * exitProgress;
-      const targetY = particle.targetY + (particle.originY - particle.targetY) * exitProgress;
-      const targetAlpha = particle.targetAlpha * (1 - exitProgress);
+    if (depopulationProgress < 0.995) {
+      for (let index = 0; index < particles.length; index += 1) {
+        const particle = particles[index];
+        const exitProgress = smoothstep(
+          (depopulationProgress - particle.exitStart) / particle.exitDuration,
+        );
+        const targetX = particle.targetX + (particle.originX - particle.targetX) * exitProgress;
+        const targetY = particle.targetY + (particle.originY - particle.targetY) * exitProgress;
+        const targetAlpha = particle.targetAlpha * (1 - exitProgress);
 
-      if (particle.delay > 0) {
-        particle.delay -= 1;
-        particle.x += randomBetween(-16, 16) * motion;
-        particle.y += randomBetween(-12, 12) * motion;
-      } else {
-        const pull = 0.055 + (1 - motion) * 0.095;
-        particle.x += (targetX - particle.x) * pull;
-        particle.y += (targetY - particle.y) * pull;
-        particle.alpha += (targetAlpha - particle.alpha) * 0.08;
+        if (particle.delay > 0) {
+          particle.delay -= 1;
+          particle.x += randomBetween(-16, 16) * motion;
+          particle.y += randomBetween(-12, 12) * motion;
+        } else {
+          const pull = 0.055 + (1 - motion) * 0.095;
+          particle.x += (targetX - particle.x) * pull;
+          particle.y += (targetY - particle.y) * pull;
+          particle.alpha += (targetAlpha - particle.alpha) * 0.08;
+        }
+
+        const visibleAlpha = clamp(particle.alpha, 0, 1);
+        if (visibleAlpha < 0.01) {
+          continue;
+        }
+
+        const shimmer = Math.sin(time * 0.004 + particle.phase) * particle.jitter * (motion + 0.12);
+        ctx.globalAlpha = visibleAlpha;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(
+          particle.x + shimmer,
+          particle.y - shimmer * 0.4,
+          particle.size,
+          particle.size,
+        );
       }
-
-      const visibleAlpha = clamp(particle.alpha, 0, 1);
-      if (visibleAlpha < 0.01) {
-        return;
-      }
-
-      const shimmer = Math.sin(time * 0.004 + particle.phase) * particle.jitter * (motion + 0.12);
-      ctx.globalAlpha = visibleAlpha;
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(
-        particle.x + shimmer,
-        particle.y - shimmer * 0.4,
-        particle.size,
-        particle.size,
-      );
-    });
+    }
 
     drawTimelineText(time);
 
@@ -751,6 +914,11 @@ async function initLifeTitle() {
   resize();
   window.addEventListener('resize', resize);
   window.addEventListener('wheel', handleWheel, { passive: false });
+  window.addEventListener('touchstart', handleTouchStart, { passive: true });
+  window.addEventListener('touchmove', handleTouchMove, { passive: false });
+  window.addEventListener('touchend', handleTouchEnd);
+  window.addEventListener('keydown', handleKeyDown);
+  syncScrollCue();
   updateTimeline();
   window.requestAnimationFrame(draw);
 }

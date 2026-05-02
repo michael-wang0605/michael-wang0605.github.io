@@ -385,6 +385,59 @@ button {
   font-family: "Source Code Pro", monospace;
 }
 
+.life-scroll-cue {
+  position: fixed;
+  right: var(--gutter);
+  bottom: 35px;
+  left: var(--gutter);
+  z-index: 4;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, .72);
+  font-family: "Source Code Pro", monospace;
+  pointer-events: none;
+  text-align: center;
+  text-shadow: 0 0 12px #000, 0 0 28px #000;
+  transition: opacity .55s var(--ease-out), transform .55s var(--ease-out);
+}
+
+.life-page.is-life-scrolled .life-scroll-cue {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.life-scroll-cue-line {
+  position: relative;
+  display: block;
+  width: 1px;
+  height: 44px;
+  overflow: hidden;
+  background: linear-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, .58), rgba(255, 255, 255, 0));
+}
+
+.life-scroll-cue-line span {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 12px rgba(255, 255, 255, .76), 0 0 28px rgba(255, 255, 255, .28);
+  transform: translate(-50%, 0);
+  animation: lifeScrollPulse 1.75s var(--ease-out) infinite;
+}
+
+.life-scroll-cue-text {
+  color: rgba(255, 255, 255, .56);
+  font-size: 10.5px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: .14em;
+  text-transform: lowercase;
+}
+
 .life-event {
   --event-x: 50%;
   --event-y: 50%;
@@ -506,6 +559,23 @@ button {
 
 .life-scroll-space {
   height: 520vh;
+}
+
+@keyframes lifeScrollPulse {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0);
+  }
+
+  18%,
+  68% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 30px);
+  }
 }
 
 .manifesto-page {
@@ -820,6 +890,20 @@ button {
     bottom: 22px;
   }
 
+  .life-scroll-cue {
+    bottom: 22px;
+    gap: 8px;
+  }
+
+  .life-scroll-cue-line {
+    height: 36px;
+  }
+
+  .life-scroll-cue-text {
+    font-size: 9.5px;
+    letter-spacing: .12em;
+  }
+
   .manifesto-page .top-links {
     right: 16px;
     z-index: 5;
@@ -877,5 +961,12 @@ button {
   .manifesto-meta p {
     max-width: 42vw;
     font-size: 9.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .life-scroll-cue-line span {
+    animation: none;
+    opacity: 1;
   }
 }
