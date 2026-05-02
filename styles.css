@@ -279,6 +279,9 @@ button {
   position: fixed;
   top: 35px;
   left: var(--gutter);
+  z-index: 5;
+  color: #fff;
+  font-family: var(--font-roobert);
   font-size: 11.25px;
   font-weight: 400;
   line-height: 1.23;
@@ -315,7 +318,7 @@ button {
 .life-main {
   position: fixed;
   inset: 0;
-  z-index: 1;
+  z-index: 3;
   min-height: 100vh;
   pointer-events: none;
 }
@@ -373,6 +376,7 @@ button {
 .life-events {
   position: fixed;
   inset: 0;
+  z-index: 3;
   width: 100%;
   height: 100vh;
   margin: 0;
@@ -388,18 +392,20 @@ button {
   --event-scale: .94;
   --event-angle: 0deg;
   --event-label-angle: 0deg;
+  --event-progress: 0;
   position: absolute;
   top: var(--event-y);
   left: var(--event-x);
   display: grid;
-  width: min(440px, 78vw);
-  grid-template-columns: minmax(82px, .72fr) 48px 48px minmax(150px, 1fr);
+  width: min(320px, 31vw);
+  grid-template-columns: minmax(82px, .68fr) 28px minmax(150px, 1fr);
+  column-gap: 15px;
   align-items: center;
   color: #fff;
-  opacity: var(--event-opacity);
+  opacity: 0;
   text-shadow: 0 0 12px #000, 0 0 28px #000, 0 0 48px #000, 0 0 8px rgba(255, 255, 255, .28);
-  transform: translate(-50%, -50%) rotate(var(--event-angle)) scale(var(--event-scale));
-  transition: opacity .2s linear, transform .2s linear;
+  transform: translate(-50%, -50%) translateY(calc((1 - var(--event-progress)) * 18px)) rotate(var(--event-angle)) scale(var(--event-scale));
+  transition: opacity .16s linear, transform .16s linear;
 }
 
 .life-event time {
@@ -407,28 +413,29 @@ button {
   grid-row: 1;
   position: relative;
   z-index: 1;
-  color: #fff;
+  color: rgba(255, 255, 255, .64);
   font-size: clamp(11px, .85vw, 14px);
-  font-weight: 400;
+  font-weight: 600;
   line-height: 1;
   text-align: right;
-  text-transform: lowercase;
-  letter-spacing: .04em;
+  text-transform: none;
+  letter-spacing: .06em;
+  opacity: 0;
   transform: rotate(var(--event-label-angle));
 }
 
 .life-event span {
-  grid-column: 4;
+  grid-column: 3;
   grid-row: 1;
   position: relative;
   z-index: 1;
   color: #fff;
-  font-size: clamp(11px, .88vw, 14px);
+  font-size: clamp(11px, .92vw, 14px);
   font-weight: 400;
   line-height: 1.2;
   letter-spacing: .06em;
-  text-transform: lowercase;
-  white-space: nowrap;
+  text-transform: none;
+  opacity: 0;
   transform: rotate(var(--event-label-angle));
 }
 
@@ -441,15 +448,26 @@ button {
 .life-event::before {
   grid-column: 2;
   grid-row: 1;
-  width: 27px;
-  justify-self: end;
+  width: 8px;
+  height: 8px;
+  border: 1px solid rgba(255, 255, 255, .82);
+  justify-self: center;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 16px rgba(255, 255, 255, .42), 0 0 34px rgba(255, 255, 255, .18);
+  transform: scale(calc(.45 + var(--event-progress) * .55));
 }
 
 .life-event::after {
-  grid-column: 3;
+  grid-column: 2;
   grid-row: 1;
-  width: 27px;
-  justify-self: start;
+  width: 1px;
+  height: 58px;
+  justify-self: center;
+  align-self: center;
+  background: linear-gradient(rgba(255, 255, 255, .34), rgba(255, 255, 255, 0));
+  opacity: calc(var(--event-progress) * .7);
+  transform: translateY(34px);
 }
 
 .life-foot {
@@ -597,26 +615,6 @@ button {
 .manifesto-copy,
 .manifesto-meta {
   pointer-events: auto;
-}
-
-.manifesto-home {
-  position: fixed;
-  top: 35px;
-  left: var(--gutter);
-  z-index: 4;
-  color: rgba(255, 255, 255, .72);
-  font-family: "Source Code Pro", monospace;
-  font-size: 11.25px;
-  font-weight: 600;
-  line-height: 1.23;
-  letter-spacing: .15em;
-  text-transform: uppercase;
-  text-shadow: 0 0 18px #000, 0 0 30px #000;
-  transition: color .6s var(--ease-out);
-}
-
-.manifesto-home:hover {
-  color: #fff;
 }
 
 .manifesto-copy {
@@ -802,8 +800,20 @@ button {
   }
 
   .life-event {
-    width: min(390px, 92vw);
-    grid-template-columns: minmax(56px, .76fr) 42px 42px minmax(132px, 1fr);
+    width: min(420px, 88vw);
+    grid-template-columns: minmax(76px, .52fr) 22px minmax(130px, 1fr);
+    column-gap: 10px;
+  }
+
+  .life-event time {
+    font-size: 10px;
+    line-height: 1.1;
+  }
+
+  .life-event span {
+    font-size: 10.5px;
+    line-height: 1.18;
+    letter-spacing: .035em;
   }
 
   .life-foot {
@@ -827,7 +837,7 @@ button {
     opacity: .55;
   }
 
-  .manifesto-home {
+  .back-link {
     top: 20px;
     left: 16px;
     max-width: 42vw;

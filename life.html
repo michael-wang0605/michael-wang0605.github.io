@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>life | michael wang</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;600;700;800&family=Source+Code+Pro:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="variables.css" />
+    <link rel="stylesheet" href="styles.css?v=life-title-particles-12" />
+  </head>
+  <body class="life-page">
+    <canvas id="life-canvas" class="life-canvas" aria-hidden="true"></canvas>
+    <canvas id="life-text-canvas" class="life-text-canvas" aria-hidden="true"></canvas>
+    <a class="back-link" href="index.html" data-i18n="nav.home">Home</a>
+
+    <nav class="top-links" aria-label="Primary pages">
+      <a class="is-current" href="life.html" data-i18n="nav.life">Life</a>
+      <a href="interests.html" data-i18n="nav.interests">interests</a>
+      <a href="manifesto.html" data-i18n="nav.manifesto">manifest<i>O</i></a>
+      <a href="contact.html" data-i18n="nav.contact">contact</a>
+      <span class="social-links" aria-label="Social links">
+        <a href="https://x.com/MichaelWang2027" target="_blank" rel="noreferrer">x</a>
+        <a href="https://www.linkedin.com/in/mwang0605/" target="_blank" rel="noreferrer">linkedin</a>
+        <a href="https://github.com/michael-wang0605" target="_blank" rel="noreferrer">github</a>
+      </span>
+    </nav>
+
+    <main class="life-main">
+      <section class="life-stage" aria-label="Life timeline">
+        <h1 class="life-fallback-title">life</h1>
+        <p class="life-fallback-subtitle">a timeline of moments that shaped who i am today.</p>
+      </section>
+      <ol class="life-events" aria-label="Timeline milestones">
+        <li class="life-event">
+          <time datetime="2008-06">june 2008</time>
+          <span>born.</span>
+        </li>
+        <li class="life-event">
+          <time datetime="2008-12">december 2008</time>
+          <span>moved to china.</span>
+        </li>
+        <li class="life-event">
+          <time datetime="2010">2010</time>
+          <span>back to georgia.</span>
+        </li>
+        <li class="life-event">
+          <time datetime="2016-05">may 2016</time>
+          <span>changed elementary schools.</span>
+        </li>
+        <li class="life-event">
+          <time datetime="2022-08">august 2022</time>
+          <span>repeated eighth grade.</span>
+        </li>
+        <li class="life-event">
+          <time datetime="2023-08">august 2023</time>
+          <span>transferred to north gwinnett.</span>
+        </li>
+        <li class="life-event">
+          <time datetime="2024-12">december 2024</time>
+          <span>biology research at emory university.</span>
+        </li>
+        <li class="life-event">
+          <time datetime="2025-01">january 2025</time>
+          <span>research under professor kai xu.</span>
+        </li>
+        <li class="life-event">
+          <time datetime="2025-07">july 2025</time>
+          <span>founded esto.</span>
+        </li>
+      </ol>
+    </main>
+
+    <script src="script.js"></script>
+    <script src="life-background.js?v=life-title-particles-12"></script>
+  </body>
+</html>
