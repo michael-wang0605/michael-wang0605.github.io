@@ -11,22 +11,21 @@
       href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;600;700;800&family=Source+Code+Pro:wght@400;700&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.45/dist/katex.min.css" />
     <link rel="stylesheet" href="variables.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body class="is-index">
-    <canvas id="shader-canvas" class="shader-canvas" aria-hidden="true"></canvas>
+    <canvas id="fluid-wireframe-canvas" class="fluid-wireframe-canvas" aria-hidden="true"></canvas>
     <canvas id="title-canvas" class="title-canvas" aria-hidden="true"></canvas>
-    <div class="css-gradient-fallback" aria-hidden="true"></div>
     <p class="equation-label" aria-label="z equals negative x times e to the negative quantity x squared plus y squared">
-      z=-xe<sup>-(x<sup>2</sup>+y<sup>2</sup>)</sup>
+      z = -xe<sup>-(x<sup>2</sup> + y<sup>2</sup>)</sup>
     </p>
 
     <nav class="top-links" aria-label="Primary pages">
-      <a href="manifesto.html" data-i18n="nav.manifesto">manifest<i>O</i></a>
-      <a href="present.html" data-i18n="nav.present">Present</a>
       <a href="timeline.html" data-i18n="nav.life">Life</a>
       <a href="interests.html" data-i18n="nav.interests">interests</a>
+      <a href="manifesto.html" data-i18n="nav.manifesto">manifest<i>O</i></a>
       <a href="contact.html" data-i18n="nav.contact">contact</a>
       <span class="social-links" aria-label="Social links">
         <a href="https://x.com/MichaelWang2027" target="_blank" rel="noreferrer">x</a>
@@ -46,6 +45,15 @@
       </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.45/dist/katex.min.js"></script>
+    <script src="fluid-wireframe-background.js"></script>
     <script src="script.js"></script>
+    <script>
+      if (window.katex) {
+        katex.render(String.raw`z=-x e^{-(x^2+y^2)}`, document.querySelector('.equation-label'), {
+          throwOnError: false,
+        });
+      }
+    </script>
   </body>
 </html>

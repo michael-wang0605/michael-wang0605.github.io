@@ -1,5 +1,16 @@
 @import url("variables.css");
 
+@font-face {
+  font-family: "New Computer Modern Math";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    local("NewComputerModernMath"),
+    local("NewCMMath-Regular"),
+    url("https://ctan.math.washington.edu/tex-archive/fonts/newcomputermodern/otf/NewCMMath-Regular.otf") format("opentype");
+}
+
 :root {
   --font-roobert: "Noto Sans JP", "Roobert", Helvetica, Arial, sans-serif;
   --ease-out: cubic-bezier(.165, .84, .44, 1);
@@ -127,17 +138,17 @@ button {
   text-decoration-color: currentColor;
 }
 
-.shader-canvas,
-.title-canvas,
-.css-gradient-fallback {
+.fluid-wireframe-canvas,
+.title-canvas {
   position: fixed;
   inset: 0;
   width: 100%;
   height: 100vh;
 }
 
-.shader-canvas {
+.fluid-wireframe-canvas {
   z-index: 0;
+  background: #000;
   pointer-events: none;
 }
 
@@ -146,45 +157,35 @@ button {
   pointer-events: none;
 }
 
-.css-gradient-fallback {
-  z-index: 0;
-  background:
-    radial-gradient(ellipse 21% 12% at 28% 45%, rgba(255, 30, 68, .92), transparent 68%),
-    radial-gradient(ellipse 13% 28% at 26% 34%, rgba(255, 74, 105, .78), transparent 72%),
-    radial-gradient(ellipse 15% 22% at 41% 50%, rgba(255, 0, 50, .72), transparent 72%),
-    radial-gradient(ellipse 49% 5% at 69% 24%, rgba(255, 0, 58, .54), transparent 75%),
-    radial-gradient(ellipse 54% 5% at 72% 58%, rgba(183, 0, 34, .42), transparent 76%),
-    radial-gradient(circle at 29% 45%, rgba(255, 205, 205, .52), transparent 6%),
-    radial-gradient(circle at 50% 50%, rgba(0, 0, 0, .72), transparent 64%),
-    #000;
-  filter: blur(18px) saturate(1.16);
-  opacity: 1;
-}
-
-.shader-ready .css-gradient-fallback {
-  opacity: 0;
-}
-
 .equation-label {
   position: fixed;
-  top: 82vh;
-  left: 47vw;
+  top: 76vh;
+  left: 50%;
   z-index: 3;
   margin: 0;
-  color: #ff1638;
-  font-family: var(--font-roobert);
-  font-size: 11.25px;
+  color: rgba(255, 255, 255, .9);
+  font-family: "New Computer Modern Math", "Cambria Math", "Times New Roman", serif;
+  font-size: max(1.05vw, 18px);
   font-weight: 400;
-  line-height: 1.23;
-  letter-spacing: .15em;
+  line-height: 1;
+  letter-spacing: 0;
   pointer-events: none;
   transform: translateX(-50%);
+  text-shadow: 0 0 16px #000, 0 0 32px #000, 0 0 48px #000;
+  white-space: nowrap;
 }
 
 .equation-label sup {
   font-size: .72em;
   line-height: 0;
-  text-transform: none;
+}
+
+.equation-label .katex,
+.equation-label .katex * {
+  color: inherit;
+  font-family: "New Computer Modern Math", "Cambria Math", "Times New Roman", serif !important;
+  font-size: 1em;
+  line-height: 1;
 }
 
 .intro {
@@ -353,5 +354,10 @@ button {
 
   .intro-foot-items p:first-child {
     display: block;
+  }
+
+  .equation-label {
+    top: 72vh;
+    font-size: max(4.8vw, 18px);
   }
 }
