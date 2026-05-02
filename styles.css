@@ -1,16 +1,5 @@
 @import url("variables.css");
 
-@font-face {
-  font-family: "New Computer Modern Math";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src:
-    local("NewComputerModernMath"),
-    local("NewCMMath-Regular"),
-    url("https://ctan.math.washington.edu/tex-archive/fonts/newcomputermodern/otf/NewCMMath-Regular.otf") format("opentype");
-}
-
 :root {
   --font-roobert: "Noto Sans JP", "Roobert", Helvetica, Arial, sans-serif;
   --ease-out: cubic-bezier(.165, .84, .44, 1);
@@ -164,7 +153,7 @@ button {
   z-index: 3;
   margin: 0;
   color: rgba(255, 255, 255, .9);
-  font-family: "New Computer Modern Math", "Cambria Math", "Times New Roman", serif;
+  font-family: "KaTeX_Main", "Cambria Math", "Times New Roman", serif;
   font-size: max(1.05vw, 18px);
   font-weight: 400;
   line-height: 1;
@@ -183,7 +172,6 @@ button {
 .equation-label .katex,
 .equation-label .katex * {
   color: inherit;
-  font-family: "New Computer Modern Math", "Cambria Math", "Times New Roman", serif !important;
   font-size: 1em;
   line-height: 1;
 }
