@@ -287,16 +287,10 @@ button {
 }
 
 .life-page {
-  min-height: 520vh;
-  overflow-x: hidden;
-  overflow-y: auto;
+  min-height: 100vh;
+  overflow: hidden;
   background: #000;
   color: #fff;
-  scrollbar-width: none;
-}
-
-.life-page::-webkit-scrollbar {
-  display: none;
 }
 
 .life-canvas {
@@ -306,6 +300,15 @@ button {
   width: 100%;
   height: 100vh;
   background: #000;
+  pointer-events: none;
+}
+
+.life-text-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100vh;
   pointer-events: none;
 }
 
@@ -352,9 +355,19 @@ button {
 .life-stage {
   position: fixed;
   inset: 0;
-  z-index: 2;
+  z-index: 1;
   display: grid;
   place-items: center;
+}
+
+.life-fallback-title,
+.life-fallback-subtitle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .life-events {
@@ -371,7 +384,7 @@ button {
 .life-event {
   --event-x: 50%;
   --event-y: 50%;
-  --event-opacity: .3;
+  --event-opacity: 0;
   --event-scale: .94;
   --event-angle: 0deg;
   --event-label-angle: 0deg;
