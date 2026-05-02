@@ -1,7 +1,7 @@
 @import url("variables.css");
 
 :root {
-  --font-roobert: "Space Grotesk", "Roobert", Helvetica, Arial, sans-serif;
+  --font-roobert: "Noto Sans JP", "Roobert", Helvetica, Arial, sans-serif;
   --ease-out: cubic-bezier(.165, .84, .44, 1);
   --gutter: 3.9vw;
 }
@@ -99,8 +99,36 @@ button {
   text-transform: none;
 }
 
+.social-links {
+  display: flex;
+  gap: 26px;
+  margin-top: 12px;
+}
+
+.social-links a {
+  color: #fff;
+  font-family: var(--font-roobert);
+  font-size: 11.25px;
+  font-weight: 400;
+  line-height: 1.23;
+  letter-spacing: .08em;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, .42);
+  text-underline-offset: 4px;
+  text-transform: none;
+  transition: text-decoration-color .6s var(--ease-out);
+}
+
+.social-links a::before {
+  display: none;
+}
+
+.social-links a:hover {
+  text-decoration-color: currentColor;
+}
+
 .shader-canvas,
-.lens-canvas,
+.title-canvas,
 .css-gradient-fallback {
   position: fixed;
   inset: 0;
@@ -113,7 +141,7 @@ button {
   pointer-events: none;
 }
 
-.lens-canvas {
+.title-canvas {
   z-index: 2;
   pointer-events: none;
 }
@@ -121,17 +149,42 @@ button {
 .css-gradient-fallback {
   z-index: 0;
   background:
-    radial-gradient(circle at 50% 48%, rgba(218, 169, 88, .96), transparent 18%),
-    radial-gradient(circle at 48% 48%, rgba(139, 184, 112, .95), transparent 31%),
-    radial-gradient(circle at 55% 52%, rgba(0, 0, 0, .66), transparent 44%),
-    radial-gradient(circle at 43% 42%, rgba(245, 121, 36, .62), transparent 42%),
+    radial-gradient(ellipse 21% 12% at 28% 45%, rgba(255, 30, 68, .92), transparent 68%),
+    radial-gradient(ellipse 13% 28% at 26% 34%, rgba(255, 74, 105, .78), transparent 72%),
+    radial-gradient(ellipse 15% 22% at 41% 50%, rgba(255, 0, 50, .72), transparent 72%),
+    radial-gradient(ellipse 49% 5% at 69% 24%, rgba(255, 0, 58, .54), transparent 75%),
+    radial-gradient(ellipse 54% 5% at 72% 58%, rgba(183, 0, 34, .42), transparent 76%),
+    radial-gradient(circle at 29% 45%, rgba(255, 205, 205, .52), transparent 6%),
+    radial-gradient(circle at 50% 50%, rgba(0, 0, 0, .72), transparent 64%),
     #000;
-  filter: blur(18px) saturate(1.04);
+  filter: blur(18px) saturate(1.16);
   opacity: 1;
 }
 
 .shader-ready .css-gradient-fallback {
   opacity: 0;
+}
+
+.equation-label {
+  position: fixed;
+  top: 82vh;
+  left: 47vw;
+  z-index: 3;
+  margin: 0;
+  color: #ff1638;
+  font-family: var(--font-roobert);
+  font-size: 11.25px;
+  font-weight: 400;
+  line-height: 1.23;
+  letter-spacing: .15em;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.equation-label sup {
+  font-size: .72em;
+  line-height: 0;
+  text-transform: none;
 }
 
 .intro {
@@ -176,15 +229,16 @@ button {
 }
 
 .intro-foot-items {
-  display: grid;
-  grid-column: 7 / span 16;
-  grid-template-columns: repeat(16, minmax(0, 1fr));
-  column-gap: .54vw;
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: center;
+  text-align: center;
 }
 
 .intro-foot-items p {
   margin: 0;
   color: #fff;
+  font-family: "Source Code Pro", monospace;
   font-size: max(.9895833333vw, 17px);
   font-weight: 400;
   line-height: 1.157;
@@ -192,15 +246,7 @@ button {
 }
 
 .intro-foot-items p:first-child {
-  grid-column: 1 / span 4;
-}
-
-.intro-foot-items p:nth-child(2) {
-  grid-column: 7 / span 4;
-}
-
-.intro-foot-items p:nth-child(3) {
-  grid-column: 13 / span 4;
+  grid-column: auto;
 }
 
 .intro-foot-items strong,
@@ -295,8 +341,8 @@ button {
   }
 
   .intro-foot-items {
-    grid-column: 1 / span 10;
-    display: block;
+    grid-column: 1 / -1;
+    display: flex;
   }
 
   .intro-foot-items p {

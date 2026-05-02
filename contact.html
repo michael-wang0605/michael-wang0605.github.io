@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;600;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="variables.css" />
@@ -15,15 +15,22 @@
   </head>
   <body class="blank-page">
     <nav class="top-links" aria-label="Primary pages">
-      <a href="manifesto.html">manifest<i>O</i></a>
-      <a href="timeline.html">timeline</a>
-      <a href="interests.html">interests</a>
-      <a class="is-current" href="contact.html">contact</a>
+      <a href="manifesto.html" data-i18n="nav.manifesto">manifest<i>O</i></a>
+      <a href="present.html" data-i18n="nav.present">Present</a>
+      <a href="timeline.html" data-i18n="nav.life">Life</a>
+      <a href="interests.html" data-i18n="nav.interests">interests</a>
+      <a class="is-current" href="contact.html" data-i18n="nav.contact">contact</a>
+      <span class="social-links" aria-label="Social links">
+        <a href="https://x.com/MichaelWang2027" target="_blank" rel="noreferrer">x</a>
+        <a href="https://www.linkedin.com/in/mwang0605/" target="_blank" rel="noreferrer">linkedin</a>
+        <a href="https://github.com/michael-wang0605" target="_blank" rel="noreferrer">github</a>
+      </span>
     </nav>
 
     <main class="blank-page-main">
-      <a class="back-link" href="index.html">home</a>
-      <h1>contact</h1>
+      <a class="back-link" href="index.html" data-i18n="nav.home">home</a>
+      <h1 data-i18n="page.contact">contact</h1>
     </main>
+    <script src="script.js"></script>
   </body>
 </html>

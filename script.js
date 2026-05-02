@@ -1,5 +1,28 @@
 const canvas = document.getElementById('shader-canvas');
-const lensCanvas = document.getElementById('lens-canvas');
+const titleCanvas = document.getElementById('title-canvas');
+
+function initAtlantaTime() {
+  const timeElement = document.getElementById('atlanta-time');
+
+  if (!timeElement) {
+    return;
+  }
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+  function updateTime() {
+    timeElement.textContent = `currently ${formatter.format(new Date()).toLowerCase()}`;
+  }
+
+  updateTime();
+  window.setInterval(updateTime, 1000);
+}
+
+initAtlantaTime();
 
 const vertexShader = `
   varying vec3 vUv;
@@ -27,6 +50,7 @@ const fragmentShader = `
   uniform float uOpacityBackground;
   uniform float uTime;
   uniform float uZoom;
+  uniform vec2  uMouse;
   uniform vec2  u_res;
 
   vec3 permute(vec3 x){ return mod(((x*34.0)+1.0)*x, 289.0); }
@@ -125,46 +149,147 @@ const fragmentShader = `
     return smoothstep(0.0, 0.5 + b*0.5, abs((sin(pos.x*3.1415) + b*2.0)) * 0.5);
   }
 
-  float circle(in vec2 _st, in float _radius, in float blurriness){
-    vec2 dist = _st;
-    return 1.0 - smoothstep(_radius - (_radius*blurriness), _radius + (_radius*blurriness), dot(dist, dist) * 4.0);
+  float flowerPolar(vec2 p, float petals, float radius, float roundness, float softness, float phase){
+    float angle = atan(p.y, p.x) + phase;
+    float r = length(p);
+    float petalWave = pow(max(0.0, 0.5 + 0.5 * cos(angle * petals)), roundness);
+    float petalRadius = radius * (0.24 + petalWave * 0.94);
+    float edge = 1.0 - smoothstep(petalRadius, petalRadius + softness, r);
+    float centerFade = smoothstep(0.025, radius * 0.52, r);
+    return edge * centerFade * smoothstep(0.42, 0.96, petalWave);
   }
 
-  float dist(vec2 p0, vec2 pf){
-    return sqrt((pf.x-p0.x)*(pf.x-p0.x) + (pf.y-p0.y)*(pf.y-p0.y));
+  float petalLayer(vec2 p, float petals, float radius, float roundness, float softness, float phase){
+    float primary = flowerPolar(p, petals, radius, roundness, softness, phase);
+    float secondary = flowerPolar(p * vec2(1.08, 0.94), petals, radius * 0.92, roundness * 0.82, softness * 1.28, phase + 0.32);
+    return clamp(primary + secondary * 0.55, 0.0, 1.0);
+  }
+
+  float flowerCenter(vec2 p){
+    float r = length(p);
+    float glow = 1.0 - smoothstep(0.02, 0.18, r);
+    float core = 1.0 - smoothstep(0.0, 0.07, r);
+    return clamp(glow * 0.72 + core, 0.0, 1.0);
+  }
+
+  float petalVeins(vec2 p, float petals, float phase){
+    float angle = atan(p.y, p.x) + phase;
+    float r = length(p);
+    float radial = pow(max(0.0, 1.0 - abs(sin(angle * petals * 0.5))), 10.0);
+    float pulse = 0.55 + 0.45 * sin(r * 34.0 - uTime * 1.2 + angle * 2.0);
+    return radial * pulse * smoothstep(0.08, 0.48, r) * (1.0 - smoothstep(0.58, 0.82, r));
+  }
+
+  float ribbonField(vec2 p){
+    float y1 = sin(p.x * 5.2 + uTime * 0.46) * 0.13 + sin(p.x * 10.0 - uTime * 0.18) * 0.045 + 0.24;
+    float y2 = sin(p.x * 4.4 - uTime * 0.36 + 1.7) * 0.11 + sin(p.x * 8.0 + uTime * 0.24) * 0.04 - 0.1;
+    float y3 = sin(p.x * 6.6 + uTime * 0.3 + 2.4) * 0.08 - 0.36;
+    float line1 = exp(-pow((p.y - y1) * 13.0, 2.0));
+    float line2 = exp(-pow((p.y - y2) * 15.0, 2.0));
+    float line3 = exp(-pow((p.y - y3) * 16.0, 2.0));
+    float rightBias = smoothstep(-0.25, 0.72, p.x);
+    return (line1 + line2 * 0.74 + line3 * 0.55) * rightBias;
+  }
+
+  float gaussianDerivative(vec2 p){
+    return -p.x * exp(-dot(p, p));
+  }
+
+  float segmentDistance(vec2 p, vec2 a, vec2 b){
+    vec2 pa = p - a;
+    vec2 ba = b - a;
+    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+    return length(pa - ba * h);
+  }
+
+  vec2 gaussianProject(float x, float y){
+    float z = gaussianDerivative(vec2(x, y));
+    float sx = x * 0.14 + y * 0.13 - 0.1;
+    float sy = z * 1.02 + y * 0.12 - 0.02;
+    return rotate2d(-0.03 + uMouse.x * 0.025) * vec2(sx, sy);
+  }
+
+  float curveDistance(vec2 p, float ySlice, float phase){
+    float best = 10.0;
+
+    for (int i = 0; i < 20; i++) {
+      float x = -2.1 + float(i) * 0.22;
+      vec2 a = gaussianProject(x, ySlice);
+      vec2 b = gaussianProject(x + 0.22, ySlice);
+      float shimmer = sin(float(i) * 0.7 + ySlice * 8.0 + phase) * 0.003;
+      best = min(best, segmentDistance(p, a, b) + shimmer);
+    }
+
+    return best;
+  }
+
+  float gaussianSurface(vec2 p){
+    float glow = 0.0;
+
+    for (int j = 0; j < 9; j++) {
+      float ySlice = -0.96 + float(j) * 0.24;
+      float d = curveDistance(p, ySlice, uTime * 1.15);
+      glow += exp(-pow(d * 70.0, 2.0)) * 0.38;
+      glow += exp(-pow(d * 18.0, 2.0)) * 0.05;
+    }
+
+    for (int k = 0; k < 5; k++) {
+      float x = -1.36 + float(k) * 0.68;
+      float best = 10.0;
+
+      for (int i = 0; i < 14; i++) {
+        float y = -0.96 + float(i) * 0.15;
+        vec2 a = gaussianProject(x, y);
+        vec2 b = gaussianProject(x, y + 0.15);
+        best = min(best, segmentDistance(p, a, b));
+      }
+
+      glow += exp(-pow(best * 48.0, 2.0)) * 0.12;
+    }
+
+    return clamp(glow, 0.0, 1.0);
+  }
+
+  float redRibbonField(vec2 p){
+    float y1 = sin(p.x * 4.4 + uTime * 0.32) * 0.08 + sin(p.x * 8.4 - uTime * 0.24) * 0.026 + 0.32;
+    float y2 = sin(p.x * 3.2 - uTime * 0.26 + 1.2) * 0.12 + 0.01;
+    float y3 = sin(p.x * 5.6 + uTime * 0.18 + 2.1) * 0.07 - 0.3;
+    float line1 = exp(-pow((p.y - y1) * 18.0, 2.0));
+    float line2 = exp(-pow((p.y - y2) * 17.0, 2.0));
+    float line3 = exp(-pow((p.y - y3) * 22.0, 2.0));
+    return line1 * 0.72 + line2 * 0.38 + line3 * 0.3;
   }
 
   void main() {
     vec2 resolution = u_res;
-    vec3 uv = vUv.xyz;
-    float progress = uBgProgress;
-
-    float baseNoise = noise(uBaseFrequency * uv + uTime * 0.18);
-    vec2 basePos = rotate2d(baseNoise * 6.283185) * uv.xy * uZoom;
-    float basePattern = lines(basePos, 0.5);
-
     vec2 st = gl_FragCoord.xy / resolution.xy - vec2(0.5);
     st.y *= resolution.y / resolution.x;
+    vec2 field = st;
 
-    float c = circle(st, 0.18 + progress * 4.8, 1.6);
+    vec2 surfaceUv = field - vec2(-0.2 + uMouse.x * 0.035, 0.04 - uMouse.y * 0.02);
+    surfaceUv *= 1.08 + sin(uTime * 0.45) * 0.012;
 
-    float offX = uv.x + sin(uv.y + uTime * 2.0);
-    float offY = uv.y - uTime * 0.2 - cos(uTime * 2.0) * 0.1;
-    float nc = snoise3(vec3(offX, offY, uTime * 1.1) * 2.0) * 0.03 * uNoiseIntensity;
+    float surface = gaussianSurface(surfaceUv) * 0.08;
+    float ribbons = redRibbonField(field + uMouse * vec2(0.035, -0.025));
+    float haze = noise(vec3(field * 2.8, uTime * 0.08));
+    float core = exp(-pow(length(surfaceUv - vec2(-0.11, 0.0)) * 5.2, 2.0));
 
-    float d = dist(resolution.xy * 0.5, gl_FragCoord.xy) * (1.0 - progress) * 0.00235;
+    vec3 deepBlack = vec3(0.018, 0.0, 0.002);
+    vec3 red = vec3(1.0, 0.02, 0.05);
+    vec3 crimson = vec3(0.65, 0.0, 0.04);
+    vec3 magenta = vec3(1.0, 0.1, 0.32);
+    vec3 whiteHot = vec3(1.0, 0.78, 0.68);
 
-    vec2 accentPos = rotate2d(baseNoise * 6.283185) * uv.xy * uZoom * uAccentFrequency;
-    float accentPattern = lines(accentPos, 0.1);
-
-    vec3 baseMix = mix(uBaseFirstColor, uBaseSecondColor, basePattern);
-    vec3 accentMix = mix(baseMix, uAccentColor, clamp(accentPattern - (1.0 - uAccentOpacity), 0.0, 1.0));
-
-    float rawMask = pow(max(c, 0.0), 6.0) * 10.0 + nc * (1.0 - progress);
-    float finalMask = smoothstep(0.02, 0.82, rawMask);
-
-    vec4 finalImage = mix(vec4(vec3(finalMask), 1.0), vec4(accentMix, 1.0), clamp(finalMask + progress, 0.0, 1.0)) * (1.0 - d);
-    gl_FragColor = vec4(finalImage.rgb, uOpacityBackground);
+    vec3 finalImage = deepBlack;
+    finalImage += crimson * ribbons * 0.52;
+    finalImage += red * pow(max(ribbons, 0.0), 2.0) * 0.42;
+    finalImage += magenta * surface * 0.2;
+    finalImage += red * pow(max(surface, 0.0), 1.8) * 0.18;
+    finalImage += whiteHot * pow(max(surface, 0.0), 4.0) * 0.08;
+    finalImage += red * core * 0.28;
+    finalImage += crimson * haze * 0.035;
+    finalImage *= 1.0 - smoothstep(0.58, 1.04, length(field * vec2(0.9, 1.08))) * 0.62;
+    gl_FragColor = vec4(finalImage, uOpacityBackground);
   }
 `;
 
@@ -184,8 +309,8 @@ async function initShader() {
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const uniforms = {
-    uBaseFirstColor: { value: new THREE.Color(0.62, 0.77, 0.54) },
-    uBaseSecondColor: { value: new THREE.Color(1.0, 0.66, 0.32) },
+    uBaseFirstColor: { value: new THREE.Color(1.0, 0.02, 0.05) },
+    uBaseSecondColor: { value: new THREE.Color(1.0, 0.1, 0.32) },
     uAccentColor: { value: new THREE.Color(0.0, 0.0, 0.0) },
     uBgProgress: { value: 0.075 },
     uAccentOpacity: { value: 0.88 },
@@ -195,6 +320,7 @@ async function initShader() {
     uOpacityBackground: { value: 1.0 },
     uTime: { value: 0.0 },
     uZoom: { value: 0.82 },
+    uMouse: { value: new THREE.Vector2(0, 0) },
     u_res: { value: new THREE.Vector2(1, 1) },
   };
 
@@ -209,6 +335,166 @@ async function initShader() {
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
   scene.add(mesh);
 
+  function gaussianDerivativeValue(x, y) {
+    return -x * Math.exp(-(x * x + y * y));
+  }
+
+  function projectGaussianPoint(x, y) {
+    const z = gaussianDerivativeValue(x, y);
+    return {
+      x: x * 0.34 + y * 0.22 - 0.28,
+      y: z * 1.95 + y * 0.24 + 0.18,
+      z: 0.02 + z * 0.08,
+      value: z,
+    };
+  }
+
+  function createGaussianSurfaceGeometry() {
+    const xSegments = 96;
+    const ySegments = 58;
+    const positions = [];
+    const values = [];
+    const indices = [];
+
+    for (let yi = 0; yi <= ySegments; yi += 1) {
+      const y = -1.45 + (yi / ySegments) * 2.9;
+
+      for (let xi = 0; xi <= xSegments; xi += 1) {
+        const x = -2.35 + (xi / xSegments) * 4.7;
+        const point = projectGaussianPoint(x, y);
+        positions.push(point.x, point.y, point.z);
+        values.push(point.value);
+      }
+    }
+
+    for (let yi = 0; yi < ySegments; yi += 1) {
+      for (let xi = 0; xi < xSegments; xi += 1) {
+        const a = yi * (xSegments + 1) + xi;
+        const b = a + 1;
+        const c = a + (xSegments + 1);
+        const d = c + 1;
+        indices.push(a, c, b, b, c, d);
+      }
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('aValue', new THREE.Float32BufferAttribute(values, 1));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    return geometry;
+  }
+
+  function createGaussianWireGeometry() {
+    const positions = [];
+    const xSteps = 92;
+    const ySteps = 34;
+    const xLines = 13;
+    const yLines = 18;
+
+    function pushSegment(a, b) {
+      positions.push(a.x, a.y, a.z + 0.004, b.x, b.y, b.z + 0.004);
+    }
+
+    for (let row = 0; row < yLines; row += 1) {
+      const y = -1.35 + (row / (yLines - 1)) * 2.7;
+      let previous = projectGaussianPoint(-2.25, y);
+
+      for (let xi = 1; xi <= xSteps; xi += 1) {
+        const x = -2.25 + (xi / xSteps) * 4.5;
+        const next = projectGaussianPoint(x, y);
+        pushSegment(previous, next);
+        previous = next;
+      }
+    }
+
+    for (let column = 0; column < xLines; column += 1) {
+      const x = -2.1 + (column / (xLines - 1)) * 4.2;
+      let previous = projectGaussianPoint(x, -1.32);
+
+      for (let yi = 1; yi <= ySteps; yi += 1) {
+        const y = -1.32 + (yi / ySteps) * 2.64;
+        const next = projectGaussianPoint(x, y);
+        pushSegment(previous, next);
+        previous = next;
+      }
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    return geometry;
+  }
+
+  const graphUniforms = {
+    uTime: uniforms.uTime,
+    uMouse: uniforms.uMouse,
+  };
+
+  const graphMaterial = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    uniforms: graphUniforms,
+    vertexShader: `
+      uniform vec2 uMouse;
+
+      attribute float aValue;
+      varying float vValue;
+      varying vec2 vPos;
+
+      void main() {
+        vValue = aValue;
+        vPos = position.xy;
+        vec3 pos = position;
+        pos.x += uMouse.x * 0.018;
+        pos.y -= uMouse.y * 0.012;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+      }
+    `,
+    fragmentShader: `
+      precision highp float;
+
+      varying float vValue;
+      varying vec2 vPos;
+
+      void main() {
+        float heightTone = smoothstep(-0.36, 0.36, vValue);
+        float center = exp(-dot(vPos - vec2(-0.28, 0.18), vPos - vec2(-0.28, 0.18)) * 10.0);
+        vec3 low = vec3(0.28, 0.0, 0.015);
+        vec3 high = vec3(1.0, 0.02, 0.06);
+        vec3 color = mix(low, high, heightTone);
+        color += vec3(1.0, 0.2, 0.16) * center * 0.22;
+        float alpha = 0.24 + abs(vValue) * 0.95 + center * 0.12;
+        gl_FragColor = vec4(color, clamp(alpha, 0.18, 0.72));
+      }
+    `,
+  });
+
+  const wireMaterial = new THREE.LineBasicMaterial({
+    color: 0xff1736,
+    transparent: true,
+    opacity: 0.68,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    depthTest: false,
+  });
+
+  const graphSurface = new THREE.Mesh(createGaussianSurfaceGeometry(), graphMaterial);
+  const graphWire = new THREE.LineSegments(createGaussianWireGeometry(), wireMaterial);
+  scene.add(graphSurface, graphWire);
+
+  const targetMouse = new THREE.Vector2(0, 0);
+  const smoothMouse = new THREE.Vector2(0, 0);
+
+  function onPointerMove(event) {
+    targetMouse.set(
+      (event.clientX / window.innerWidth - 0.5) * 2,
+      (event.clientY / window.innerHeight - 0.5) * 2
+    );
+  }
+
   function resize() {
     const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
     renderer.setPixelRatio(pixelRatio);
@@ -219,12 +505,15 @@ async function initShader() {
   function animate(time) {
     uniforms.uTime.value = time * 0.001;
     uniforms.uBgProgress.value = 0.073 + Math.sin(time * 0.00034) * 0.006;
+    smoothMouse.lerp(targetMouse, 0.065);
+    uniforms.uMouse.value.copy(smoothMouse);
     renderer.render(scene, camera);
     requestAnimationFrame(animate);
   }
 
   resize();
   window.addEventListener('resize', resize);
+  window.addEventListener('pointermove', onPointerMove, { passive: true });
   document.documentElement.classList.add('shader-ready');
   requestAnimationFrame(animate);
 }
@@ -233,212 +522,323 @@ initShader().catch((error) => {
   console.warn('Shader background failed; using CSS fallback.', error);
 });
 
-function createDisplacementTexture() {
-  const size = 256;
-  const source = document.createElement('canvas');
-  source.width = size;
-  source.height = size;
-  const ctx = source.getContext('2d');
-  const image = ctx.createImageData(size, size);
-
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const dx = (x / size - 0.5) * 2;
-      const dy = (y / size - 0.5) * 2;
-      const radius = Math.sqrt(dx * dx + dy * dy);
-      const angle = Math.atan2(dy, dx);
-      const ripple = Math.sin(radius * 34 - angle * 3) * 0.5 + 0.5;
-      const falloff = Math.max(0, 1 - radius);
-      const value = 128 + (ripple - 0.5) * 120 * falloff;
-      const index = (y * size + x) * 4;
-      image.data[index] = value + dx * 36 * falloff;
-      image.data[index + 1] = value + dy * 36 * falloff;
-      image.data[index + 2] = 128;
-      image.data[index + 3] = Math.round(255 * falloff);
-    }
-  }
-
-  ctx.putImageData(image, 0, 0);
-  return PIXI.Texture.from(source);
-}
-
-function createLensTexture(radius) {
-  const size = radius * 2;
-  const source = document.createElement('canvas');
-  source.width = size;
-  source.height = size;
-  const ctx = source.getContext('2d');
-  const center = radius;
-
-  const glass = ctx.createRadialGradient(center * 0.75, center * 0.62, 0, center, center, radius);
-  glass.addColorStop(0, 'rgba(255,255,255,0.42)');
-  glass.addColorStop(0.18, 'rgba(255,255,255,0.10)');
-  glass.addColorStop(0.62, 'rgba(255,255,255,0.035)');
-  glass.addColorStop(1, 'rgba(255,255,255,0.0)');
-
-  ctx.fillStyle = glass;
-  ctx.beginPath();
-  ctx.arc(center, center, radius * 0.96, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.26)';
-  ctx.lineWidth = Math.max(1, radius * 0.022);
-  ctx.beginPath();
-  ctx.arc(center, center, radius * 0.92, 0, Math.PI * 2);
-  ctx.stroke();
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.46)';
-  ctx.lineWidth = Math.max(1, radius * 0.018);
-  ctx.beginPath();
-  ctx.arc(center * 0.82, center * 0.78, radius * 0.5, Math.PI * 1.1, Math.PI * 1.62);
-  ctx.stroke();
-
-  ctx.fillStyle = 'rgba(255,255,255,0.72)';
-  ctx.beginPath();
-  ctx.ellipse(center * 0.67, center * 0.58, radius * 0.12, radius * 0.055, -0.55, 0, Math.PI * 2);
-  ctx.fill();
-
-  return PIXI.Texture.from(source);
-}
-
-function buildTitleText(text, fontSize) {
-  return new PIXI.Text(text, {
-    fontFamily: 'Space Grotesk, Roobert, Helvetica, Arial, sans-serif',
-    fontSize,
-    fontWeight: '400',
-    fill: 0xffffff,
-    lineHeight: fontSize * 0.934,
-    align: 'center',
-  });
-}
-
-async function initCursorLens() {
-  if (!window.PIXI || !lensCanvas) {
+async function initTitleCanvas() {
+  if (!titleCanvas) {
     return;
   }
 
   await document.fonts.ready;
 
-  const app = new PIXI.Application({
-    view: lensCanvas,
-    resizeTo: window,
-    backgroundAlpha: 0,
-    antialias: true,
-    autoDensity: true,
-    resolution: Math.min(window.devicePixelRatio || 1, 2),
-  });
+  const ctx = titleCanvas.getContext('2d');
+  const heading = document.querySelector('.intro-title');
+  const HOLD_MS = 2500;
+  const INTRO_DELAY_MS = 450;
+  const STEP_MS = 620;
+  const segmentKeys = ['michael', 'wang', 'wangChinese', 'bohanChinese'];
+  const englishKeys = ['michael', 'wang'];
+  const chineseKeys = ['wangChinese', 'bohanChinese'];
+  const particles = [];
+  let width = 0;
+  let height = 0;
+  let pixelRatio = 1;
+  let sources = {};
+  let activeLanguage = 'intro';
+  let sequenceTimer = null;
+  let transitionStartedAt = performance.now();
+  const settleDuration = 1200;
 
-  const englishContainer = new PIXI.Container();
-  const revealContainer = new PIXI.Container();
-  const maskedEnglish = new PIXI.Container();
-  const maskedReveal = new PIXI.Container();
-  const circleMask = new PIXI.Graphics();
-  const inverseCircleMask = new PIXI.Graphics();
-  const lensSprite = new PIXI.Sprite();
-  const displacementSprite = new PIXI.Sprite(createDisplacementTexture());
-  const displacementFilter = new PIXI.filters.DisplacementFilter(displacementSprite);
-  const rgbSplitFilter = PIXI.filters.RGBSplitFilter
-    ? new PIXI.filters.RGBSplitFilter([-3, 2], [1, 1], [3, -2])
-    : null;
-
-  displacementFilter.scale.set(20, 20);
-  displacementSprite.anchor.set(0.5);
-  displacementSprite.alpha = 0;
-
-  maskedEnglish.addChild(englishContainer);
-  maskedReveal.addChild(revealContainer);
-  maskedEnglish.mask = inverseCircleMask;
-  maskedReveal.mask = circleMask;
-  maskedReveal.filters = rgbSplitFilter
-    ? [displacementFilter, rgbSplitFilter]
-    : [displacementFilter];
-
-  app.stage.addChild(maskedEnglish);
-  app.stage.addChild(maskedReveal);
-  app.stage.addChild(circleMask);
-  app.stage.addChild(inverseCircleMask);
-  app.stage.addChild(displacementSprite);
-  app.stage.addChild(lensSprite);
-
-  let englishText;
-  let revealText;
-  let radius = 118;
-  let targetX = window.innerWidth * 0.5;
-  let targetY = window.innerHeight * 0.5;
-  let smoothX = targetX;
-  let smoothY = targetY;
-
-  function drawInverseMask() {
-    inverseCircleMask.clear();
-    inverseCircleMask.beginFill(0xffffff);
-    inverseCircleMask.drawRect(0, 0, app.screen.width, app.screen.height);
-    inverseCircleMask.beginHole();
-    inverseCircleMask.drawCircle(smoothX, smoothY, radius);
-    inverseCircleMask.endHole();
-    inverseCircleMask.endFill();
+  function randomBetween(min, max) {
+    return min + Math.random() * (max - min);
   }
 
-  function drawCircleMask() {
-    circleMask.clear();
-    circleMask.beginFill(0xffffff);
-    circleMask.drawCircle(smoothX, smoothY, radius);
-    circleMask.endFill();
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
   }
 
-  function layoutText() {
-    const fontSize = Math.max(window.innerWidth * 0.08, window.innerWidth < 768 ? 76 : 72);
-    radius = Math.max(84, Math.min(138, window.innerWidth * 0.09));
+  function getFontSize() {
+    const baseSize = Math.max(window.innerWidth * 0.066, window.innerWidth < 768 ? 62 : 60);
+    return baseSize;
+  }
 
-    englishContainer.removeChildren();
-    revealContainer.removeChildren();
+  function createTextSource({ text, x, y, fontSize, fontWeight = 400 }) {
+    const source = document.createElement('canvas');
+    const sourceCtx = source.getContext('2d');
 
-    englishText = buildTitleText('michael wang', fontSize);
-    revealText = buildTitleText('汪博涵', fontSize * 0.86);
+    source.width = width;
+    source.height = height;
+    sourceCtx.clearRect(0, 0, width, height);
+    sourceCtx.fillStyle = '#fff';
+    sourceCtx.font = `${fontWeight} ${fontSize}px "Noto Sans JP", "Roobert", Helvetica, Arial, sans-serif`;
+    sourceCtx.textAlign = 'center';
+    sourceCtx.textBaseline = 'middle';
+    sourceCtx.fillText(text, x, y);
 
-    englishText.anchor.set(0.5);
-    revealText.anchor.set(0.5);
-    englishText.position.set(app.screen.width * 0.5, app.screen.height * 0.5 - 14);
-    revealText.position.set(app.screen.width * 0.5, app.screen.height * 0.5 - 14);
+    const imageData = sourceCtx.getImageData(0, 0, width, height);
+    const points = [];
+    const sampleGap = window.innerWidth < 768 ? 1 : 2;
 
-    englishContainer.addChild(englishText);
-    revealContainer.addChild(revealText);
+    for (let y = 0; y < height; y += sampleGap) {
+      for (let x = 0; x < width; x += sampleGap) {
+        const alpha = imageData.data[(y * width + x) * 4 + 3];
 
-    lensSprite.texture = createLensTexture(Math.ceil(radius));
-    lensSprite.anchor.set(0.5);
-    lensSprite.alpha = 0.72;
-    lensSprite.blendMode = PIXI.BLEND_MODES.SCREEN;
+        if (alpha > 35) {
+          points.push({ x, y, alpha: alpha / 255 });
+        }
+      }
+    }
 
-    displacementSprite.width = radius * 2.05;
-    displacementSprite.height = radius * 2.05;
-    drawCircleMask();
-    drawInverseMask();
+    return points;
+  }
+
+  function getSegmentLayouts() {
+    const measuringCanvas = document.createElement('canvas');
+    const measuringCtx = measuringCanvas.getContext('2d');
+    const fontSize = getFontSize();
+    const chineseFontSize = fontSize * 1.08;
+    const centerY = height * 0.5 - 14;
+    const fontStack = '"Noto Sans JP", "Roobert", Helvetica, Arial, sans-serif';
+
+    measuringCtx.font = `400 ${fontSize}px ${fontStack}`;
+    const michaelWidth = measuringCtx.measureText('michael').width;
+    const wangWidth = measuringCtx.measureText('wang').width;
+    const englishGap = fontSize * 0.56;
+    const englishWidth = michaelWidth + englishGap + wangWidth;
+    const michaelX = width * 0.5 - englishWidth * 0.5 + michaelWidth * 0.5;
+    const wangX = width * 0.5 + englishWidth * 0.5 - wangWidth * 0.5;
+
+    measuringCtx.font = `400 ${chineseFontSize}px ${fontStack}`;
+    const chineseWangWidth = measuringCtx.measureText('汪').width;
+    const bohanWidth = measuringCtx.measureText('博涵').width;
+    const chineseGap = chineseFontSize * 0.2;
+    const chineseWidth = chineseWangWidth + chineseGap + bohanWidth;
+    const chineseWangX = width * 0.5 - chineseWidth * 0.5 + chineseWangWidth * 0.5;
+    const bohanX = width * 0.5 + chineseWidth * 0.5 - bohanWidth * 0.5;
+
+    return {
+      michael: { text: 'michael', x: michaelX, y: centerY, fontSize },
+      wang: { text: 'wang', x: wangX, y: centerY, fontSize },
+      wangChinese: { text: '汪', x: chineseWangX, y: centerY, fontSize: chineseFontSize, fontWeight: 400 },
+      bohanChinese: { text: '博涵', x: bohanX, y: centerY, fontSize: chineseFontSize, fontWeight: 400 },
+    };
+  }
+
+  function setHeadingText(language) {
+    if (!heading) {
+      return;
+    }
+
+    heading.textContent = language === 'chinese' ? '汪博涵' : 'michael wang';
+  }
+
+  function getParticleCount(points, segment) {
+    const isChineseSegment = chineseKeys.includes(segment);
+    const multiplier = window.innerWidth < 768 ? 0.52 : 0.64;
+    const minimum = window.innerWidth < 768 ? 620 : 920;
+    const maximum = window.innerWidth < 768 ? 1900 : 3200;
+    const densityBoost = isChineseSegment ? 1.28 : 1;
+
+    return Math.round(clamp(points.length * multiplier * densityBoost, minimum, maximum * densityBoost));
+  }
+
+  function getParticleSize(segment) {
+    const isChineseSegment = chineseKeys.includes(segment);
+
+    if (isChineseSegment) {
+      return randomBetween(0.95, window.innerWidth < 768 ? 1.7 : 1.9);
+    }
+
+    return randomBetween(1.15, window.innerWidth < 768 ? 2.0 : 2.25);
+  }
+
+  function retargetParticle(particle, show, immediate = false) {
+    const points = sources[particle.segment];
+
+    if (!points || points.length === 0) {
+      return;
+    }
+
+    const point = points[Math.floor(Math.random() * points.length)];
+
+    if (show) {
+      particle.targetX = point.x;
+      particle.targetY = point.y;
+      particle.targetAlpha = Math.max(0.58, point.alpha);
+      particle.delay = immediate ? 0 : Math.random() * 26;
+
+      if (particle.alpha <= 0.04 || immediate) {
+        particle.x = point.x + randomBetween(-28, 28);
+        particle.y = point.y + randomBetween(84, 170);
+      }
+    } else {
+      particle.targetX = particle.x + randomBetween(-95, 95);
+      particle.targetY = particle.y - randomBetween(92, 230);
+      particle.targetAlpha = 0;
+      particle.delay = immediate ? 0 : Math.random() * 18;
+    }
+
+    if (immediate && show) {
+      particle.x = point.x;
+      particle.y = point.y;
+      particle.alpha = Math.max(0.58, point.alpha);
+      particle.targetAlpha = particle.alpha;
+      particle.delay = 0;
+    }
+  }
+
+  function createParticles() {
+    particles.length = 0;
+
+    segmentKeys.forEach((segment) => {
+      const points = sources[segment];
+
+      if (!points || points.length === 0) {
+        return;
+      }
+
+      const visible = activeLanguage === 'english'
+        ? englishKeys.includes(segment)
+        : activeLanguage === 'chinese' && chineseKeys.includes(segment);
+      const count = getParticleCount(points, segment);
+
+      for (let index = 0; index < count; index += 1) {
+        const point = points[Math.floor(Math.random() * points.length)];
+        const alpha = visible ? Math.max(0.58, point.alpha) : 0;
+        const particle = {
+          segment,
+          x: visible ? point.x : randomBetween(0, width),
+          y: visible ? point.y : randomBetween(height * 0.56, height * 0.84),
+          targetX: point.x,
+          targetY: point.y,
+          size: getParticleSize(segment),
+          alpha,
+          targetAlpha: alpha,
+          delay: Math.random() * 18,
+          jitter: randomBetween(0.25, 1.2),
+          phase: Math.random() * Math.PI * 2,
+        };
+
+        retargetParticle(particle, visible, true);
+        particles.push(particle);
+      }
+    });
+  }
+
+  function buildSources() {
+    const layouts = getSegmentLayouts();
+
+    sources = Object.fromEntries(
+      segmentKeys.map((segment) => [segment, createTextSource(layouts[segment])]),
+    );
+  }
+
+  function setSegments(segments, show, immediate = false) {
+    transitionStartedAt = performance.now();
+
+    particles.forEach((particle) => {
+      if (segments.includes(particle.segment)) {
+        retargetParticle(particle, show, immediate);
+      }
+    });
+  }
+
+  function scheduleSequence() {
+    window.clearTimeout(sequenceTimer);
+
+    const waitTime = activeLanguage === 'intro' ? INTRO_DELAY_MS : HOLD_MS;
+
+    sequenceTimer = window.setTimeout(() => {
+      if (activeLanguage === 'intro') {
+        setSegments(['michael'], true);
+        window.setTimeout(() => {
+          setSegments(['wang'], true);
+          activeLanguage = 'english';
+          setHeadingText(activeLanguage);
+          window.setTimeout(scheduleSequence, settleDuration);
+        }, STEP_MS);
+      } else if (activeLanguage === 'english') {
+        setSegments(['michael'], false);
+        window.setTimeout(() => setSegments(['wang'], false), STEP_MS);
+        window.setTimeout(() => setSegments(['wangChinese'], true), STEP_MS * 2);
+        window.setTimeout(() => {
+          setSegments(['bohanChinese'], true);
+          activeLanguage = 'chinese';
+          setHeadingText(activeLanguage);
+          window.setTimeout(scheduleSequence, settleDuration);
+        }, STEP_MS * 3);
+      } else {
+        setSegments(['wangChinese'], false);
+        window.setTimeout(() => setSegments(['bohanChinese'], false), STEP_MS);
+        window.setTimeout(() => setSegments(['michael'], true), STEP_MS * 2);
+        window.setTimeout(() => {
+          setSegments(['wang'], true);
+          activeLanguage = 'english';
+          setHeadingText(activeLanguage);
+          window.setTimeout(scheduleSequence, settleDuration);
+        }, STEP_MS * 3);
+      }
+    }, waitTime);
   }
 
   function resize() {
-    layoutText();
+    width = window.innerWidth;
+    height = window.innerHeight;
+    pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    titleCanvas.width = Math.floor(width * pixelRatio);
+    titleCanvas.height = Math.floor(height * pixelRatio);
+    titleCanvas.style.width = `${width}px`;
+    titleCanvas.style.height = `${height}px`;
+    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    buildSources();
+    createParticles();
+    transitionStartedAt = performance.now();
   }
 
-  window.addEventListener('pointermove', (event) => {
-    targetX = event.clientX;
-    targetY = event.clientY;
-  });
+  function draw(time) {
+    const elapsed = Math.max(0, time - transitionStartedAt);
+    const motion = clamp(1 - elapsed / settleDuration, 0, 1);
+
+    ctx.clearRect(0, 0, width, height);
+
+    particles.forEach((particle) => {
+      if (particle.delay > 0) {
+        particle.delay -= 1;
+        particle.x += randomBetween(-12, 12) * motion;
+        particle.y += randomBetween(-8, 8) * motion;
+      } else {
+        const pull = 0.07 + (1 - motion) * 0.085;
+        particle.x += (particle.targetX - particle.x) * pull;
+        particle.y += (particle.targetY - particle.y) * pull;
+        particle.alpha += (particle.targetAlpha - particle.alpha) * 0.08;
+      }
+
+      const shimmer = Math.sin(time * 0.004 + particle.phase) * particle.jitter * motion;
+      const visibleAlpha = clamp(particle.alpha, 0, 1);
+
+      if (visibleAlpha < 0.01) {
+        return;
+      }
+
+      ctx.globalAlpha = visibleAlpha;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(
+        particle.x + shimmer,
+        particle.y - shimmer * 0.4,
+        particle.size,
+        particle.size,
+      );
+    });
+
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(draw);
+  }
 
   window.addEventListener('resize', resize);
-  layoutText();
-
-  app.ticker.add(() => {
-    smoothX += 0.1 * (targetX - smoothX);
-    smoothY += 0.1 * (targetY - smoothY);
-
-    lensSprite.position.set(smoothX, smoothY);
-    displacementSprite.position.set(smoothX, smoothY);
-    displacementSprite.rotation += 0.0035;
-
-    drawCircleMask();
-    drawInverseMask();
-  });
+  resize();
+  setHeadingText(activeLanguage);
+  scheduleSequence();
+  requestAnimationFrame(draw);
 }
 
-initCursorLens().catch((error) => {
-  console.warn('Cursor lens failed.', error);
+initTitleCanvas().catch((error) => {
+  console.warn('Title canvas failed.', error);
 });
