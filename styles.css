@@ -286,6 +286,400 @@ button {
   text-transform: uppercase;
 }
 
+.life-page {
+  min-height: 520vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: #000;
+  color: #fff;
+  scrollbar-width: none;
+}
+
+.life-page::-webkit-scrollbar {
+  display: none;
+}
+
+.life-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100vh;
+  background: #000;
+  pointer-events: none;
+}
+
+.life-main {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  min-height: 100vh;
+  pointer-events: none;
+}
+
+.life-main a,
+.life-main .life-event {
+  pointer-events: auto;
+}
+
+.life-page .top-links a {
+  font-family: "Source Code Pro", monospace;
+  letter-spacing: .12em;
+}
+
+.life-page .social-links a {
+  font-family: "Source Code Pro", monospace;
+  font-size: 10.5px;
+  letter-spacing: .06em;
+  text-transform: lowercase;
+}
+
+.life-wordmark {
+  position: fixed;
+  top: 35px;
+  left: var(--gutter);
+  z-index: 4;
+  color: #fff;
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-size: clamp(22px, 2.35vw, 36px);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -.02em;
+  text-transform: lowercase;
+  text-shadow: 0 0 20px rgba(255, 255, 255, .18), 0 0 42px rgba(255, 255, 255, .08);
+}
+
+.life-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+}
+
+.life-events {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: "Source Code Pro", monospace;
+}
+
+.life-event {
+  --event-x: 50%;
+  --event-y: 50%;
+  --event-opacity: .3;
+  --event-scale: .94;
+  --event-angle: 0deg;
+  --event-label-angle: 0deg;
+  position: absolute;
+  top: var(--event-y);
+  left: var(--event-x);
+  display: grid;
+  width: min(440px, 78vw);
+  grid-template-columns: minmax(82px, .72fr) 48px 48px minmax(150px, 1fr);
+  align-items: center;
+  color: #fff;
+  opacity: var(--event-opacity);
+  text-shadow: 0 0 12px #000, 0 0 28px #000, 0 0 48px #000, 0 0 8px rgba(255, 255, 255, .28);
+  transform: translate(-50%, -50%) rotate(var(--event-angle)) scale(var(--event-scale));
+  transition: opacity .2s linear, transform .2s linear;
+}
+
+.life-event time {
+  grid-column: 1;
+  grid-row: 1;
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  font-size: clamp(11px, .85vw, 14px);
+  font-weight: 400;
+  line-height: 1;
+  text-align: right;
+  text-transform: lowercase;
+  letter-spacing: .04em;
+  transform: rotate(var(--event-label-angle));
+}
+
+.life-event span {
+  grid-column: 4;
+  grid-row: 1;
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  font-size: clamp(11px, .88vw, 14px);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: .06em;
+  text-transform: lowercase;
+  white-space: nowrap;
+  transform: rotate(var(--event-label-angle));
+}
+
+.life-event::before,
+.life-event::after {
+  display: none;
+  content: "";
+}
+
+.life-event::before {
+  grid-column: 2;
+  grid-row: 1;
+  width: 27px;
+  justify-self: end;
+}
+
+.life-event::after {
+  grid-column: 3;
+  grid-row: 1;
+  width: 27px;
+  justify-self: start;
+}
+
+.life-foot {
+  position: fixed;
+  right: var(--gutter);
+  bottom: 35px;
+  left: var(--gutter);
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  font-family: "Source Code Pro", monospace;
+  text-align: center;
+}
+
+.life-foot p {
+  margin: 0;
+  font-size: clamp(11px, .82vw, 13px);
+  line-height: 1.45;
+  text-transform: lowercase;
+  letter-spacing: .05em;
+}
+
+.life-foot strong,
+.life-foot span {
+  display: block;
+}
+
+.life-foot strong {
+  font-weight: 400;
+  color: rgba(255, 255, 255, .82);
+}
+
+.life-foot span {
+  color: rgba(255, 255, 255, .42);
+}
+
+.life-scroll-space {
+  height: 520vh;
+}
+
+.manifesto-page {
+  min-height: 100vh;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+}
+
+.manifesto-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100vh;
+  background: #000;
+  pointer-events: none;
+}
+
+.manifesto-fisherman {
+  position: fixed;
+  top: clamp(128px, 21.5vh, 230px);
+  right: clamp(24px, 8.5vw, 154px);
+  z-index: 1;
+  width: clamp(178px, 23vw, 370px);
+  height: clamp(330px, 50vh, 570px);
+  pointer-events: none;
+  opacity: .96;
+  filter: drop-shadow(0 0 16px rgba(255, 255, 255, .13)) drop-shadow(0 0 44px rgba(255, 255, 255, .08));
+}
+
+.manifesto-fisherman::before {
+  position: absolute;
+  right: 3%;
+  bottom: 14%;
+  left: -20%;
+  height: 42%;
+  background: radial-gradient(ellipse at 50% 52%, rgba(255, 255, 255, .14), rgba(255, 255, 255, .045) 38%, transparent 72%);
+  content: "";
+  opacity: .72;
+  transform: rotate(-7deg);
+}
+
+.manifesto-fisherman img,
+.manifesto-fisherman-fallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.manifesto-fisherman img {
+  display: block;
+  object-fit: contain;
+  object-position: center bottom;
+}
+
+.manifesto-fisherman.is-missing-image img {
+  display: none;
+}
+
+.manifesto-fisherman-fallback {
+  display: none;
+}
+
+.manifesto-fisherman.is-missing-image .manifesto-fisherman-fallback {
+  display: block;
+}
+
+.manifesto-fisherman-fallback::before {
+  position: absolute;
+  top: 12%;
+  left: 42%;
+  width: 18%;
+  height: 11%;
+  border-radius: 50%;
+  background: #010101;
+  box-shadow: -22px 4px 0 -14px #010101;
+  content: "";
+}
+
+.manifesto-fisherman-fallback::after {
+  position: absolute;
+  right: 26%;
+  bottom: 2%;
+  width: 37%;
+  height: 77%;
+  border-radius: 45% 38% 18% 20%;
+  background:
+    linear-gradient(72deg, transparent 64%, #010101 65% 72%, transparent 73%) 50% 50% / 100% 100% no-repeat,
+    #010101;
+  box-shadow:
+    -29px 125px 0 -21px #010101,
+    20px 128px 0 -22px #010101,
+    -55px 118px 0 -32px #010101;
+  content: "";
+}
+
+.manifesto-main {
+  position: relative;
+  z-index: 3;
+  min-height: 100vh;
+  pointer-events: none;
+}
+
+.manifesto-main a,
+.manifesto-copy,
+.manifesto-meta {
+  pointer-events: auto;
+}
+
+.manifesto-home {
+  position: fixed;
+  top: 35px;
+  left: var(--gutter);
+  z-index: 4;
+  color: rgba(255, 255, 255, .72);
+  font-family: "Source Code Pro", monospace;
+  font-size: 11.25px;
+  font-weight: 600;
+  line-height: 1.23;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  text-shadow: 0 0 18px #000, 0 0 30px #000;
+  transition: color .6s var(--ease-out);
+}
+
+.manifesto-home:hover {
+  color: #fff;
+}
+
+.manifesto-copy {
+  position: fixed;
+  top: clamp(146px, 30vh, 300px);
+  left: var(--gutter);
+  z-index: 3;
+  width: min(560px, 48vw);
+  font-family: "Source Code Pro", monospace;
+  text-shadow: 0 0 14px #000, 0 0 34px #000, 0 0 56px #000;
+}
+
+.manifesto-copy h1 {
+  margin: 0 0 clamp(28px, 4.6vh, 54px);
+  color: rgba(255, 255, 255, .78);
+  font-family: "Source Code Pro", monospace;
+  font-size: clamp(42px, 3.6vw, 72px);
+  font-weight: 400;
+  line-height: .94;
+  letter-spacing: .13em;
+  text-transform: lowercase;
+}
+
+.manifesto-copy p {
+  max-width: 53ch;
+  margin: 0;
+  color: rgba(255, 255, 255, .74);
+  font-size: clamp(14px, 1vw, 18px);
+  font-weight: 400;
+  line-height: 1.72;
+  letter-spacing: .03em;
+}
+
+.manifesto-copy p + p {
+  margin-top: clamp(26px, 4.2vh, 46px);
+}
+
+.manifesto-meta {
+  position: fixed;
+  right: var(--gutter);
+  bottom: 35px;
+  left: var(--gutter);
+  z-index: 4;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  font-family: "Source Code Pro", monospace;
+  pointer-events: none;
+  text-shadow: 0 0 14px #000, 0 0 34px #000;
+}
+
+.manifesto-meta p {
+  margin: 0;
+  color: rgba(255, 255, 255, .45);
+  font-size: clamp(10px, .78vw, 12px);
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: .07em;
+  text-transform: lowercase;
+}
+
+.manifesto-meta p:last-child {
+  text-align: right;
+}
+
+.manifesto-meta strong,
+.manifesto-meta span {
+  display: block;
+}
+
+.manifesto-meta strong {
+  color: rgba(255, 255, 255, .76);
+  font-weight: 400;
+}
+
 @keyframes titleIn {
   to {
     opacity: 1;
@@ -316,6 +710,37 @@ button {
 
   .top-links {
     top: 20px;
+    gap: 14px;
+  }
+
+  .social-links {
+    gap: 14px;
+    margin-top: 6px;
+  }
+
+  .life-page .social-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: end;
+    gap: 12px 18px;
+    margin-top: 4px;
+  }
+
+  .life-page .social-links a {
+    font-size: 10px;
+  }
+
+  .life-page .top-links {
+    right: 16px;
+    z-index: 10;
+    display: grid;
+    visibility: visible;
+  }
+
+  .life-page .top-links > a {
+    display: inline-block;
+    color: #fff;
+    font-size: 10.5px;
   }
 
   .intro-inner {
@@ -347,5 +772,87 @@ button {
   .equation-label {
     top: 72vh;
     font-size: max(4.8vw, 18px);
+  }
+
+  .life-page {
+    min-height: 500vh;
+  }
+
+  .life-wordmark {
+    top: 20px;
+    font-size: clamp(22px, 7.2vw, 34px);
+  }
+
+  .life-events {
+    width: 100%;
+    height: 100vh;
+  }
+
+  .life-event {
+    width: min(390px, 92vw);
+    grid-template-columns: minmax(56px, .76fr) 42px 42px minmax(132px, 1fr);
+  }
+
+  .life-foot {
+    bottom: 22px;
+  }
+
+  .manifesto-page .top-links {
+    right: 16px;
+    z-index: 5;
+  }
+
+  .manifesto-page .social-links {
+    display: none;
+  }
+
+  .manifesto-fisherman {
+    top: 18vh;
+    right: -8vw;
+    width: clamp(150px, 46vw, 260px);
+    height: clamp(270px, 43vh, 420px);
+    opacity: .55;
+  }
+
+  .manifesto-home {
+    top: 20px;
+    left: 16px;
+    max-width: 42vw;
+    font-size: 10.5px;
+  }
+
+  .manifesto-copy {
+    top: auto;
+    right: 16px;
+    bottom: 82px;
+    left: 16px;
+    width: auto;
+  }
+
+  .manifesto-copy h1 {
+    margin-bottom: 22px;
+    font-size: clamp(38px, 12vw, 58px);
+    letter-spacing: .1em;
+  }
+
+  .manifesto-copy p {
+    max-width: 30ch;
+    font-size: 14px;
+    line-height: 1.58;
+  }
+
+  .manifesto-copy p + p {
+    margin-top: 18px;
+  }
+
+  .manifesto-meta {
+    right: 16px;
+    bottom: 20px;
+    left: 16px;
+  }
+
+  .manifesto-meta p {
+    max-width: 42vw;
+    font-size: 9.5px;
   }
 }

@@ -2,9 +2,12 @@ const canvas = document.getElementById('shader-canvas');
 const titleCanvas = document.getElementById('title-canvas');
 
 function initAtlantaTime() {
-  const timeElement = document.getElementById('atlanta-time');
+  const timeElements = [
+    document.getElementById('atlanta-time'),
+    document.getElementById('manifesto-time'),
+  ].filter(Boolean);
 
-  if (!timeElement) {
+  if (timeElements.length === 0) {
     return;
   }
 
@@ -15,7 +18,11 @@ function initAtlantaTime() {
   });
 
   function updateTime() {
-    timeElement.textContent = `currently ${formatter.format(new Date()).toLowerCase()}`;
+    const time = `currently ${formatter.format(new Date()).toLowerCase()}`;
+
+    timeElements.forEach((timeElement) => {
+      timeElement.textContent = time;
+    });
   }
 
   updateTime();

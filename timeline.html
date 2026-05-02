@@ -7,13 +7,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;600;700;800&family=Source+Code+Pro:wght@400;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="variables.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body class="blank-page">
+  <body class="life-page">
+    <canvas id="life-canvas" class="life-canvas" aria-hidden="true"></canvas>
+
     <nav class="top-links" aria-label="Primary pages">
       <a class="is-current" href="timeline.html" data-i18n="nav.life">Life</a>
       <a href="interests.html" data-i18n="nav.interests">interests</a>
@@ -26,10 +28,39 @@
       </span>
     </nav>
 
-    <main class="blank-page-main">
-      <a class="back-link" href="index.html" data-i18n="nav.home">home</a>
-      <h1 data-i18n="page.timeline">timeline</h1>
+    <main class="life-main">
+      <a class="life-wordmark" href="index.html" aria-label="home">life</a>
+
+      <section class="life-stage" aria-label="Life timeline">
+        <ol class="life-events">
+          <li class="life-event" data-progress="0">
+            <time>1996</time>
+            <span>born</span>
+          </li>
+          <li class="life-event" data-progress="0.25">
+            <time>2014</time>
+            <span>learned to code</span>
+          </li>
+          <li class="life-event" data-progress="0.5">
+            <time>2018</time>
+            <span>research</span>
+          </li>
+          <li class="life-event" data-progress="0.74">
+            <time>2021</time>
+            <span>build</span>
+          </li>
+          <li class="life-event" data-progress="1">
+            <time>future</time>
+            <span>future</span>
+          </li>
+        </ol>
+      </section>
+
     </main>
+
+    <div class="life-scroll-space" aria-hidden="true"></div>
+
     <script src="script.js"></script>
+    <script src="life-background.js"></script>
   </body>
 </html>
