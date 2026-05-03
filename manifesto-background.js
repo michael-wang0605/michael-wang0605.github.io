@@ -3,6 +3,7 @@ const titleCanvas = document.getElementById('manifesto-title-canvas');
 const pageLifecycle = window.MWPageLifecycle;
 const pageToken = pageLifecycle && pageLifecycle.getActiveToken ? pageLifecycle.getActiveToken() : 0;
 const TITLE_PIXEL_RATIO_CAP = 1;
+const TITLE_SETTLED_EVENT = 'mw:manifesto-title-settled';
 
 function isCurrentCanvas(element) {
   return element &&
@@ -35,7 +36,8 @@ async function initManifestoTitle() {
   let sourcePoints = [];
   let startedAt = performance.now();
   let lastDrawAt = 0;
-  const settleDuration = 1500;
+  let hasAnnouncedSettled = false;
+  const settleDuration = 1050;
   const activeFrameInterval = 1000 / 42;
   const settledFrameInterval = 1000 / 24;
 
@@ -109,7 +111,7 @@ async function initManifestoTitle() {
         targetY: point.y,
         targetAlpha: Math.max(0.58, point.alpha),
         alpha: 0,
-        delay: Math.random() * 24,
+        delay: Math.random() * 14,
         size: randomBetween(width < 768 ? 1.16 : 1.3, width < 768 ? 2.12 : 2.72),
         jitter: randomBetween(0.18, 1.05),
         phase: Math.random() * Math.PI * 2,
@@ -134,12 +136,26 @@ async function initManifestoTitle() {
     createParticles();
   }
 
+  function announceSettled() {
+    if (hasAnnouncedSettled) return;
+
+    hasAnnouncedSettled = true;
+
+    if (isCurrentCanvas(titleCanvas)) {
+      document.dispatchEvent(new CustomEvent(TITLE_SETTLED_EVENT));
+    }
+  }
+
   function draw(time) {
     if (!isCurrentCanvas(titleCanvas)) return;
 
     const elapsed = Math.max(0, time - startedAt);
     const motion = clamp(1 - elapsed / settleDuration, 0, 1);
     const frameInterval = motion > 0 ? activeFrameInterval : settledFrameInterval;
+
+    if (elapsed >= settleDuration) {
+      announceSettled();
+    }
 
     if (time - lastDrawAt < frameInterval) {
       window.requestAnimationFrame(draw);
@@ -158,10 +174,10 @@ async function initManifestoTitle() {
         particle.x += randomBetween(-12, 12) * motion;
         particle.y += randomBetween(-8, 8) * motion;
       } else {
-        const pull = 0.07 + (1 - motion) * 0.09;
+        const pull = 0.1 + (1 - motion) * 0.12;
         particle.x += (particle.targetX - particle.x) * pull;
         particle.y += (particle.targetY - particle.y) * pull;
-        particle.alpha += (particle.targetAlpha - particle.alpha) * 0.08;
+        particle.alpha += (particle.targetAlpha - particle.alpha) * 0.12;
       }
 
       const visibleAlpha = clamp(particle.alpha, 0, 1);
@@ -188,5 +204,6 @@ async function initManifestoTitle() {
   resize();
   window.addEventListener('resize', resize);
   window.requestAnimationFrame(draw);
+  window.setTimeout(announceSettled, settleDuration + 250);
 }
 })();

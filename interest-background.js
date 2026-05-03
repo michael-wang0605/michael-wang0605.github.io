@@ -1,6 +1,6 @@
 const canvas = document.getElementById('interest-shader-canvas');
 const titleCanvas = document.getElementById('interest-title-canvas');
-const GPU_ARTIFACT_DELAY = 280;
+const TITLE_SETTLED_EVENT = 'mw:interest-title-settled';
 const pageLifecycle = window.MWPageLifecycle;
 const pageToken = pageLifecycle && pageLifecycle.getActiveToken ? pageLifecycle.getActiveToken() : 0;
 
@@ -10,14 +10,17 @@ function isCurrentCanvas(element) {
     (!pageLifecycle || pageLifecycle.getActiveToken() === pageToken);
 }
 
+let titleSettledPromise = Promise.resolve();
+
 if (titleCanvas) {
-  initInterestTitle().catch((error) => {
+  titleSettledPromise = initInterestTitle().catch((error) => {
     console.warn('Interest title animation failed.', error);
   });
 }
 
 if (canvas) {
-  scheduleInterestArtifact(() => {
+  titleSettledPromise.then(() => {
+    scheduleInterestArtifact(() => {
     const gl = canvas.getContext('webgl', {
       alpha: false,
       antialias: false,
@@ -507,6 +510,7 @@ if (canvas) {
     window.addEventListener('resize', resize);
     window.requestAnimationFrame(render);
   }
+    });
   });
 }
 
@@ -526,7 +530,7 @@ function scheduleInterestArtifact(callback) {
     }
   };
 
-  window.setTimeout(run, GPU_ARTIFACT_DELAY);
+  run();
 }
 
 async function initInterestTitle() {
@@ -548,7 +552,12 @@ async function initInterestTitle() {
   let sourcePoints = [];
   let startedAt = performance.now();
   let lastDrawAt = 0;
-  const settleDuration = 1500;
+  let hasAnnouncedSettled = false;
+  let resolveSettled;
+  const settledPromise = new Promise((resolve) => {
+    resolveSettled = resolve;
+  });
+  const settleDuration = 1050;
   const activeFrameInterval = 1000 / 42;
   const settledFrameInterval = 1000 / 24;
 
@@ -620,7 +629,7 @@ async function initInterestTitle() {
         targetY: point.y,
         targetAlpha: Math.max(0.58, point.alpha),
         alpha: 0,
-        delay: Math.random() * 24,
+        delay: Math.random() * 14,
         size: randomBetween(width < 768 ? 1.14 : 1.28, width < 768 ? 2.08 : 2.68),
         jitter: randomBetween(0.18, 1.05),
         phase: Math.random() * Math.PI * 2,
@@ -645,12 +654,28 @@ async function initInterestTitle() {
     createParticles();
   }
 
+  function announceSettled() {
+    if (hasAnnouncedSettled) return;
+
+    hasAnnouncedSettled = true;
+
+    if (isCurrentCanvas(titleCanvas)) {
+      titleCanvas.dispatchEvent(new CustomEvent(TITLE_SETTLED_EVENT, { bubbles: true }));
+    }
+
+    resolveSettled();
+  }
+
   function draw(time) {
     if (!isCurrentCanvas(titleCanvas)) return;
 
     const elapsed = Math.max(0, time - startedAt);
     const motion = clamp(1 - elapsed / settleDuration, 0, 1);
     const frameInterval = motion > 0 ? activeFrameInterval : settledFrameInterval;
+
+    if (elapsed >= settleDuration) {
+      announceSettled();
+    }
 
     if (time - lastDrawAt < frameInterval) {
       window.requestAnimationFrame(draw);
@@ -669,10 +694,10 @@ async function initInterestTitle() {
         particle.x += randomBetween(-12, 12) * motion;
         particle.y += randomBetween(-8, 8) * motion;
       } else {
-        const pull = 0.07 + (1 - motion) * 0.09;
+        const pull = 0.1 + (1 - motion) * 0.12;
         particle.x += (particle.targetX - particle.x) * pull;
         particle.y += (particle.targetY - particle.y) * pull;
-        particle.alpha += (particle.targetAlpha - particle.alpha) * 0.08;
+        particle.alpha += (particle.targetAlpha - particle.alpha) * 0.12;
       }
 
       const visibleAlpha = clamp(particle.alpha, 0, 1);
@@ -699,4 +724,7 @@ async function initInterestTitle() {
   resize();
   window.addEventListener('resize', resize);
   window.requestAnimationFrame(draw);
+  window.setTimeout(announceSettled, settleDuration + 250);
+
+  return settledPromise;
 }

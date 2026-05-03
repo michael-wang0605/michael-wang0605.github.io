@@ -2,6 +2,7 @@
   'use strict';
 
   var KEY = 'mw_audio';
+  var SESSION_PAUSED_KEY = 'mw_audio_paused_this_visit';
   var STATE_UNKNOWN = 'unknown';
   var audio = document.getElementById('player-audio');
   var btnPlay = document.getElementById('btn-playpause');
@@ -20,7 +21,7 @@
 
   try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
 
-  var shouldAutoplay = saved.playing !== false;
+  var shouldAutoplay = sessionStorage.getItem(SESSION_PAUSED_KEY) !== '1';
   var targetTime = saved.position || 0;
 
   if (shouldAutoplay && saved.timestamp) {
@@ -59,6 +60,8 @@
   }
 
   function requestPlay() {
+    shouldAutoplay = true;
+    sessionStorage.removeItem(SESSION_PAUSED_KEY);
     syncStartTime();
 
     var p = audio.play();
@@ -85,12 +88,6 @@
     }
   }
 
-  function retryAutoplay(event) {
-    if (event && event.target && event.target.closest && event.target.closest('.turntable-fixed')) return;
-    if (!shouldAutoplay || !audio.paused) return;
-    requestPlay();
-  }
-
   resume();
   audio.addEventListener('loadedmetadata', resume, { once: true });
   audio.addEventListener('canplay', resume, { once: true });
@@ -104,17 +101,15 @@
     setPlaying(true);
   });
   audio.addEventListener('pause', function () { setPlaying(false); });
-  window.addEventListener('pointerdown', retryAutoplay, { passive: true });
-  window.addEventListener('keydown', retryAutoplay);
 
   if (btnPlay) {
     btnPlay.addEventListener('click', function () {
       if (audio.paused) {
-        shouldAutoplay = true;
         requestPlay();
       } else {
         shouldAutoplay = false;
         autoplayBlocked = false;
+        sessionStorage.setItem(SESSION_PAUSED_KEY, '1');
         audio.pause();
         save();
       }
@@ -142,11 +137,11 @@
   if (turntableBtn) {
     turntableBtn.addEventListener('click', function () {
       if (audio.paused) {
-        shouldAutoplay = true;
         requestPlay();
       } else {
         shouldAutoplay = false;
         autoplayBlocked = false;
+        sessionStorage.setItem(SESSION_PAUSED_KEY, '1');
         audio.pause();
         save();
       }

@@ -86,10 +86,11 @@
     <script>
       (function () {
         var container = document.getElementById('manifesto-aurelia');
-        var delay = 280;
+        var titleSettledEvent = 'mw:manifesto-title-settled';
         var lifecycle = window.MWPageLifecycle;
         var token = lifecycle && lifecycle.getActiveToken ? lifecycle.getActiveToken() : 0;
         var originalTimeEnd = console.timeEnd ? console.timeEnd.bind(console) : null;
+        var hasStarted = false;
         var hasRevealed = false;
 
         if (!container) return;
@@ -137,10 +138,6 @@
           return result;
         }
 
-        if (originalTimeEnd) {
-          console.timeEnd = patchedTimeEnd;
-        }
-
         var observer = new MutationObserver(function () {
           var canvas = container.querySelector('canvas');
 
@@ -184,15 +181,30 @@
             });
         }
 
-        window.setTimeout(function () {
+        function startAurelia() {
+          if (hasStarted || !isCurrentPage()) return;
+
+          hasStarted = true;
+
+          if (originalTimeEnd) {
+            console.timeEnd = patchedTimeEnd;
+          }
+
           if ('requestIdleCallback' in window) {
             window.requestIdleCallback(loadAurelia, { timeout: 700 });
           } else {
             loadAurelia();
           }
-        }, delay);
 
-        window.setTimeout(restoreConsole, 15000);
+          window.setTimeout(restoreConsole, 15000);
+        }
+
+        if (document.getElementById('manifesto-title-canvas')) {
+          document.addEventListener(titleSettledEvent, startAurelia, { once: true });
+          window.setTimeout(startAurelia, 2600);
+        } else {
+          startAurelia();
+        }
       }());
     </script>
     <div class="turntable-fixed">
