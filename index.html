@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Michael Wang's personal website." />
     <title>michael wang</title>
+    <script src="site-shell.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -56,5 +57,57 @@
         });
       }
     </script>
+    <div class="turntable-fixed">
+      <div class="volume-control">
+        <input type="range" id="vol-slider" class="volume-slider" min="0" max="100" value="80" aria-label="Volume" />
+      </div>
+      <div id="turntable" aria-hidden="true">
+        <div id="table-shadow"></div>
+        <div id="table-feet"></div>
+        <div id="wood">
+          <div id="grain1"></div>
+          <div id="grain2"></div>
+          <div id="grain3"></div>
+          <div id="grain4"></div>
+          <div id="grain5"></div>
+          <div id="grain6"></div>
+        </div>
+        <div id="wood2">
+          <div id="grain7"></div>
+          <div id="grain8"></div>
+          <div id="grain9"></div>
+          <div id="grain10"></div>
+          <div id="grain11"></div>
+        </div>
+        <div id="table"></div>
+        <div id="button"></div>
+        <div id="disk">
+          <div id="label"></div>
+        </div>
+        <div id="axis-shadow"></div>
+        <div id="axis"></div>
+        <div id="arm-shadow"></div>
+        <div id="weight-shadow"></div>
+        <div id="base">
+          <div id="axle-shadow"></div>
+        </div>
+        <div id="lever"></div>
+        <div id="weight"></div>
+        <div id="axle"></div>
+        <div id="arm"></div>
+        <div id="head"></div>
+      </div>
+      <div class="player-controls">
+        <div class="player-transport">
+          <button class="player-btn" id="btn-rewind" aria-label="Rewind 10 seconds">< 10</button>
+          <button class="player-btn" id="btn-playpause" aria-label="Play/Pause">▶</button>
+          <button class="player-btn" id="btn-forward" aria-label="Forward 10 seconds">10 ></button>
+        </div>
+        <p class="player-title">gymnopédie no.1</p>
+        <p class="player-artist">erik satie</p>
+      </div>
+      <audio id="player-audio" src="public/assets/gymnopedie-no1.mp3" preload="auto" autoplay playsinline loop></audio>
+    </div>
+    <script src="player.js"></script>
   </body>
 </html>

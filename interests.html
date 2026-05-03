@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>interests | michael wang</title>
+    <script src="site-shell.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -13,7 +14,9 @@
     <link rel="stylesheet" href="variables.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body class="blank-page">
+  <body class="blank-page interest-page">
+    <canvas id="interest-shader-canvas" class="interest-shader-canvas" aria-hidden="true"></canvas>
+    <canvas id="interest-title-canvas" class="interest-title-canvas" aria-hidden="true"></canvas>
     <nav class="top-links" aria-label="Primary pages">
       <a href="life.html" data-i18n="nav.life">Life</a>
       <a class="is-current" href="interests.html" data-i18n="nav.interests">interests</a>
@@ -29,26 +32,96 @@
 
     <main class="blank-page-main">
       <a class="back-link" href="index.html" data-i18n="nav.home">Home</a>
-      <h1 data-i18n="page.interests">interests</h1>
-      <section class="interest-shader" aria-label="Interactive gyroid shader sculpture">
-        <p class="interest-shader-label">Current obsession: gyroid noise sculpture</p>
-        <div class="interest-shader-frame-wrap">
-          <iframe
-            class="interest-shader-frame"
-            src="https://shaderpark.com/sculpture/-OmGj9JBg35Xx0xnH91i?hideeditor=true&hidepedestal=true"
-            title="Gyroid noise Shader Park sculpture"
-            loading="lazy"
-            allow="fullscreen"
-          ></iframe>
+      <h1 class="interest-fallback-title" data-i18n="page.interests">interests</h1>
+      <p class="interest-title-note">what i would like to see happen in my lifetime</p>
+      <section class="interest-copy" aria-label="interest goals">
+        <p>if you are passionate and/or working deeply in these categories i would love to chat!</p>
+
+        <div class="interest-goals" aria-label="goals by timeline">
+          <section class="interest-goal-group">
+            <h3>5 years:</h3>
+            <ul>
+              <li>:: reducing ai inference cost</li>
+              <li>:: make society more efficient</li>
+              <li>:: catching a bluefin tuna</li>
+            </ul>
+          </section>
+
+          <section class="interest-goal-group">
+            <h3>15 years:</h3>
+            <ul>
+              <li>:: solving longevity</li>
+              <li>:: human colony on the moon</li>
+              <li>:: automating specialized manufacturing</li>
+              <li>:: agi in brain computer interfaces</li>
+            </ul>
+          </section>
+
+          <section class="interest-goal-group">
+            <h3>30 years:</h3>
+            <ul>
+              <li>:: live on a beach</li>
+              <li>:: own a tuk tuk</li>
+              <li>:: have tons of kids</li>
+              <li>:: protect western civilization and its culture</li>
+            </ul>
+          </section>
         </div>
-        <p class="interest-shader-note">
-          Living, breathing topology study — a Shader Park gyroid form.
-          <a href="https://shaderpark.com/sculpture/-OmGj9JBg35Xx0xnH91i" target="_blank" rel="noreferrer">
-            Open sculpture ↗
-          </a>
-        </p>
       </section>
     </main>
+    <div class="turntable-fixed">
+      <div class="volume-control">
+        <input type="range" id="vol-slider" class="volume-slider" min="0" max="100" value="80" aria-label="Volume" />
+      </div>
+      <div id="turntable" aria-hidden="true">
+        <div id="table-shadow"></div>
+        <div id="table-feet"></div>
+        <div id="wood">
+          <div id="grain1"></div>
+          <div id="grain2"></div>
+          <div id="grain3"></div>
+          <div id="grain4"></div>
+          <div id="grain5"></div>
+          <div id="grain6"></div>
+        </div>
+        <div id="wood2">
+          <div id="grain7"></div>
+          <div id="grain8"></div>
+          <div id="grain9"></div>
+          <div id="grain10"></div>
+          <div id="grain11"></div>
+        </div>
+        <div id="table"></div>
+        <div id="button"></div>
+        <div id="disk">
+          <div id="label"></div>
+        </div>
+        <div id="axis-shadow"></div>
+        <div id="axis"></div>
+        <div id="arm-shadow"></div>
+        <div id="weight-shadow"></div>
+        <div id="base">
+          <div id="axle-shadow"></div>
+        </div>
+        <div id="lever"></div>
+        <div id="weight"></div>
+        <div id="axle"></div>
+        <div id="arm"></div>
+        <div id="head"></div>
+      </div>
+      <div class="player-controls">
+        <div class="player-transport">
+          <button class="player-btn" id="btn-rewind" aria-label="Rewind 10 seconds">< 10</button>
+          <button class="player-btn" id="btn-playpause" aria-label="Play/Pause">▶</button>
+          <button class="player-btn" id="btn-forward" aria-label="Forward 10 seconds">10 ></button>
+        </div>
+        <p class="player-title">gymnopédie no.1</p>
+        <p class="player-artist">erik satie</p>
+      </div>
+      <audio id="player-audio" src="public/assets/gymnopedie-no1.mp3" preload="auto" autoplay playsinline loop></audio>
+    </div>
     <script src="script.js"></script>
+    <script type="module" src="interest-background.js?v=20260503-title-particles-only"></script>
+    <script src="player.js"></script>
   </body>
 </html>

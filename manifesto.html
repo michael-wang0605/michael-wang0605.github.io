@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>manifesto | michael wang</title>
+    <script src="site-shell.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -11,10 +12,11 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="variables.css" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=manifesto-particles-1" />
   </head>
   <body class="manifesto-page">
-    <canvas id="manifesto-canvas" class="manifesto-canvas" aria-hidden="true"></canvas>
+    <div id="manifesto-aurelia" class="manifesto-aurelia" aria-hidden="true"></div>
+    <canvas id="manifesto-title-canvas" class="manifesto-title-canvas" aria-hidden="true"></canvas>
 
     <nav class="top-links" aria-label="Primary pages">
       <a href="life.html" data-i18n="nav.life">Life</a>
@@ -31,14 +33,108 @@
 
     <main class="manifesto-main">
       <a class="back-link" href="index.html" data-i18n="nav.home">Home</a>
+      <section class="manifesto-stage" aria-label="Personal manifesto">
+        <h1 class="manifesto-fallback-title">manifesto</h1>
+        <p class="manifesto-title-note">this is my personal manifesto; it will not align with everyone else's belief.</p>
+        <article class="manifesto-copy">
+          <p>
+            fishing is a near-perfect metaphor for modern human life. most people live life chasing goals with a certain
+            expected value that is almost always inflated. we <em>expect</em> to gain more wealth, fame, and/or some
+            worldly desire, yet we almost always fall short. fishing is the exact same; you go expecting to catch a
+            <a href="public/assets/manifesto-bass.jpg" target="_blank" rel="noreferrer">monstrous bass</a>, but nothing
+            even bites your hook.
+          </p>
 
-      <footer class="manifesto-meta" aria-label="Location and current time">
-        <p><strong>33.7490 N, 84.3880 W</strong><span>atlanta, georgia</span></p>
-        <p><strong id="manifesto-time">currently</strong><span>eastern time</span></p>
-      </footer>
+          <p>
+            how should we change our expected value? instead of expecting to catch a fish or land some
+            <a href="https://prestigerank.com/" target="_blank" rel="noreferrer">prestigious</a> job, we should value the
+            process itself. the sitting around, chatting with friends, listening to music while waiting for the bobber to
+            move; the interview preparation, the meaningful conversations, the failures in hopes of a lucrative career. a
+            life built only around catching becomes enslaved to outcomes we cannot control.
+          </p>
+
+          <p>
+            this is generally how i approach life. revenue, medals, titles, etc. matter only when they point toward
+            something larger. they are signals and not the purpose. i am less interested in creating or contributing
+            toward something whose <em>sole purpose</em> is revenue than in building things with
+            <a href="https://x.com/PalantirTech/status/2045574398573453312?s=20" target="_blank" rel="noreferrer">consequences</a>
+            that leave the world more capable than i found it.
+          </p>
+
+          <p>
+            in this new and evolving ai era, humans are consuming more information and media than ever before. i strongly
+            believe that information absorption and creativity are inversely related. the more we consume, the more our
+            thoughts risk becoming inherited rather than discovered. this can be observed in a
+            <a href="https://en.wikipedia.org/wiki/Timeline_of_mathematics#Modern" target="_blank" rel="noreferrer">timeline</a>
+            of consequential discoveries in mathematics.
+          </p>
+
+          <p>
+            in earlier eras, people were more limited in what they could absorb, so they were forced to spend more time in
+            curiosity, silence, and original thought. this led to more fascinating discoveries that were further from the
+            norm <em>at that time</em>. people had different obsessions, strange questions, and the courage to sit with
+            uncertainty before arriving at a conclusion. the frontier of technology will not be shaped by those who
+            consume the most. it will be shaped by those who protect their attention, think originally, and pursue what
+            they believe is worth fishing for.
+          </p>
+        </article>
+      </section>
     </main>
 
     <script src="script.js"></script>
-    <script src="manifesto-background.js?v=monochrome-jellyfish-2"></script>
+    <script src="manifesto-background.js?v=manifesto-particles-1"></script>
+    <script type="module" src="public/assets/aurelia/aurelia-manifesto.js?v=repo-aurelia-6"></script>
+    <div class="turntable-fixed">
+      <div class="volume-control">
+        <input type="range" id="vol-slider" class="volume-slider" min="0" max="100" value="80" aria-label="Volume" />
+      </div>
+      <div id="turntable" aria-hidden="true">
+        <div id="table-shadow"></div>
+        <div id="table-feet"></div>
+        <div id="wood">
+          <div id="grain1"></div>
+          <div id="grain2"></div>
+          <div id="grain3"></div>
+          <div id="grain4"></div>
+          <div id="grain5"></div>
+          <div id="grain6"></div>
+        </div>
+        <div id="wood2">
+          <div id="grain7"></div>
+          <div id="grain8"></div>
+          <div id="grain9"></div>
+          <div id="grain10"></div>
+          <div id="grain11"></div>
+        </div>
+        <div id="table"></div>
+        <div id="button"></div>
+        <div id="disk">
+          <div id="label"></div>
+        </div>
+        <div id="axis-shadow"></div>
+        <div id="axis"></div>
+        <div id="arm-shadow"></div>
+        <div id="weight-shadow"></div>
+        <div id="base">
+          <div id="axle-shadow"></div>
+        </div>
+        <div id="lever"></div>
+        <div id="weight"></div>
+        <div id="axle"></div>
+        <div id="arm"></div>
+        <div id="head"></div>
+      </div>
+      <div class="player-controls">
+        <div class="player-transport">
+          <button class="player-btn" id="btn-rewind" aria-label="Rewind 10 seconds">< 10</button>
+          <button class="player-btn" id="btn-playpause" aria-label="Play/Pause">▶</button>
+          <button class="player-btn" id="btn-forward" aria-label="Forward 10 seconds">10 ></button>
+        </div>
+        <p class="player-title">gymnopédie no.1</p>
+        <p class="player-artist">erik satie</p>
+      </div>
+      <audio id="player-audio" src="public/assets/gymnopedie-no1.mp3" preload="auto" autoplay playsinline loop></audio>
+    </div>
+    <script src="player.js"></script>
   </body>
 </html>
