@@ -262,6 +262,7 @@ button {
   display: grid;
   min-height: 100vh;
   padding: 35px var(--gutter);
+  gap: 22px;
   place-items: center;
 }
 
@@ -273,6 +274,61 @@ button {
   line-height: .934;
   letter-spacing: 0;
   text-transform: none;
+}
+
+.interest-shader {
+  position: relative;
+  z-index: 2;
+  width: min(56vw, 760px);
+}
+
+.interest-shader-label {
+  margin: 0 0 12px;
+  color: rgba(190, 209, 255, .9);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+
+.interest-shader-frame-wrap {
+  overflow: hidden;
+  border: 1px solid rgba(131, 159, 255, .45);
+  border-radius: 16px;
+  background: radial-gradient(circle at 20% 20%, rgba(107, 131, 230, .26), rgba(6, 8, 15, .95));
+  box-shadow: 0 0 24px rgba(96, 127, 237, .25), 0 0 50px rgba(16, 21, 44, .8);
+}
+
+.interest-shader-frame {
+  display: block;
+  width: 100%;
+  height: min(42vw, 460px);
+  border: 0;
+}
+
+.interest-shader-note {
+  margin: 10px 4px 0;
+  color: rgba(220, 230, 255, .78);
+  font-size: 12px;
+  letter-spacing: .06em;
+}
+
+.interest-shader-note a {
+  margin-left: 8px;
+  color: rgba(173, 203, 255, .95);
+  text-decoration: underline;
+  text-decoration-color: rgba(173, 203, 255, .45);
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 900px) {
+  .interest-shader {
+    width: min(100%, 680px);
+  }
+
+  .interest-shader-frame {
+    height: min(55vw, 360px);
+  }
 }
 
 .contact-page {
