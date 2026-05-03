@@ -1,6 +1,14 @@
 (() => {
 const titleCanvas = document.getElementById('manifesto-title-canvas');
-const TITLE_PIXEL_RATIO_CAP = 1.35;
+const pageLifecycle = window.MWPageLifecycle;
+const pageToken = pageLifecycle && pageLifecycle.getActiveToken ? pageLifecycle.getActiveToken() : 0;
+const TITLE_PIXEL_RATIO_CAP = 1;
+
+function isCurrentCanvas(element) {
+  return element &&
+    element.isConnected &&
+    (!pageLifecycle || pageLifecycle.getActiveToken() === pageToken);
+}
 
 if (titleCanvas) {
   initManifestoTitle().catch((error) => {
@@ -16,6 +24,8 @@ async function initManifestoTitle() {
     }),
   ]);
 
+  if (!isCurrentCanvas(titleCanvas)) return;
+
   const ctx = titleCanvas.getContext('2d');
   const heading = document.querySelector('.manifesto-fallback-title');
   const particles = [];
@@ -24,7 +34,10 @@ async function initManifestoTitle() {
   let pixelRatio = 1;
   let sourcePoints = [];
   let startedAt = performance.now();
+  let lastDrawAt = 0;
   const settleDuration = 1500;
+  const activeFrameInterval = 1000 / 42;
+  const settledFrameInterval = 1000 / 24;
 
   function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
@@ -56,7 +69,7 @@ async function initManifestoTitle() {
     sourceCtx.fillText('manifesto', width * 0.5, centerY);
 
     const imageData = sourceCtx.getImageData(0, 0, width, height);
-    const sampleGap = 1;
+    const sampleGap = 2;
 
     for (let y = 0; y < height; y += sampleGap) {
       for (let x = 0; x < width; x += sampleGap) {
@@ -76,13 +89,15 @@ async function initManifestoTitle() {
   }
 
   function createParticles() {
-    const count = Math.round(clamp(
-      sourcePoints.length * (width < 768 ? 0.54 : 0.66),
-      width < 768 ? 1600 : 3000,
-      width < 768 ? 3800 : 7200,
-    ));
-
     particles.length = 0;
+
+    if (!sourcePoints.length) return;
+
+    const count = Math.round(clamp(
+      sourcePoints.length * (width < 768 ? 0.4 : 0.44),
+      width < 768 ? 1100 : 2000,
+      width < 768 ? 2500 : 3900,
+    ));
 
     for (let index = 0; index < count; index += 1) {
       const point = sourcePoints[Math.floor(Math.random() * sourcePoints.length)];
@@ -94,8 +109,8 @@ async function initManifestoTitle() {
         targetY: point.y,
         targetAlpha: Math.max(0.58, point.alpha),
         alpha: 0,
-        delay: Math.random() * 32,
-        size: randomBetween(width < 768 ? 1.02 : 1.14, width < 768 ? 1.9 : 2.35),
+        delay: Math.random() * 24,
+        size: randomBetween(width < 768 ? 1.16 : 1.3, width < 768 ? 2.12 : 2.72),
         jitter: randomBetween(0.18, 1.05),
         phase: Math.random() * Math.PI * 2,
       });
@@ -105,6 +120,8 @@ async function initManifestoTitle() {
   }
 
   function resize() {
+    if (!isCurrentCanvas(titleCanvas)) return;
+
     width = window.innerWidth;
     height = window.innerHeight;
     pixelRatio = Math.min(window.devicePixelRatio || 1, TITLE_PIXEL_RATIO_CAP);
@@ -118,8 +135,18 @@ async function initManifestoTitle() {
   }
 
   function draw(time) {
+    if (!isCurrentCanvas(titleCanvas)) return;
+
     const elapsed = Math.max(0, time - startedAt);
     const motion = clamp(1 - elapsed / settleDuration, 0, 1);
+    const frameInterval = motion > 0 ? activeFrameInterval : settledFrameInterval;
+
+    if (time - lastDrawAt < frameInterval) {
+      window.requestAnimationFrame(draw);
+      return;
+    }
+
+    lastDrawAt = time;
 
     ctx.clearRect(0, 0, width, height);
 

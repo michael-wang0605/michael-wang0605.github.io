@@ -1,5 +1,14 @@
 const canvas = document.getElementById('interest-shader-canvas');
 const titleCanvas = document.getElementById('interest-title-canvas');
+const GPU_ARTIFACT_DELAY = 280;
+const pageLifecycle = window.MWPageLifecycle;
+const pageToken = pageLifecycle && pageLifecycle.getActiveToken ? pageLifecycle.getActiveToken() : 0;
+
+function isCurrentCanvas(element) {
+  return element &&
+    element.isConnected &&
+    (!pageLifecycle || pageLifecycle.getActiveToken() === pageToken);
+}
 
 if (titleCanvas) {
   initInterestTitle().catch((error) => {
@@ -8,18 +17,19 @@ if (titleCanvas) {
 }
 
 if (canvas) {
-  const gl = canvas.getContext('webgl', {
-    alpha: false,
-    antialias: false,
-    depth: false,
-    stencil: false,
-    powerPreference: 'high-performance',
-  });
+  scheduleInterestArtifact(() => {
+    const gl = canvas.getContext('webgl', {
+      alpha: false,
+      antialias: false,
+      depth: false,
+      stencil: false,
+      powerPreference: 'high-performance',
+    });
 
-  if (!gl) {
-    console.warn('Interest background failed: WebGL is unavailable.');
-  } else {
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!gl) {
+      console.warn('Interest background failed: WebGL is unavailable.');
+    } else {
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const vertexShader = `
       attribute vec2 aPosition;
@@ -34,6 +44,7 @@ if (canvas) {
 
       uniform vec3 iResolution;
       uniform float iTime;
+      uniform float iIntro;
 
       // Based on this tutorial: https://www.youtube.com/watch?v=PGtv-dBi2wE
       // Soft shadow implementation based on: https://iquilezles.org/articles/rmshadows
@@ -387,6 +398,7 @@ if (canvas) {
 
       void main() {
         mainImage(gl_FragColor, gl_FragCoord.xy);
+        gl_FragColor.rgb *= smoothstep(0.0, 1.0, iIntro);
       }
     `;
 
@@ -448,6 +460,9 @@ if (canvas) {
     const positionLocation = gl.getAttribLocation(program, 'aPosition');
     const resolutionLocation = gl.getUniformLocation(program, 'iResolution');
     const timeLocation = gl.getUniformLocation(program, 'iTime');
+    const introLocation = gl.getUniformLocation(program, 'iIntro');
+    let hasRevealed = false;
+    let firstFrameAt = 0;
 
     function resize() {
       const pixelRatio = Math.min(window.devicePixelRatio || 1, 0.92);
@@ -463,6 +478,12 @@ if (canvas) {
     }
 
     function render(now) {
+      if (!isCurrentCanvas(canvas)) return;
+
+      if (!firstFrameAt) {
+        firstFrameAt = now;
+      }
+
       resize();
 
       gl.useProgram(program);
@@ -471,7 +492,13 @@ if (canvas) {
       gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
       gl.uniform3f(resolutionLocation, canvas.width, canvas.height, 1);
       gl.uniform1f(timeLocation, (now * 0.001) * (reducedMotion ? 0.12 : 0.72));
+      gl.uniform1f(introLocation, Math.min(1, Math.max(0, (now - firstFrameAt) / 900)));
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+      if (!hasRevealed) {
+        hasRevealed = true;
+        document.body.classList.add('is-gpu-ready');
+      }
 
       window.requestAnimationFrame(render);
     }
@@ -480,6 +507,26 @@ if (canvas) {
     window.addEventListener('resize', resize);
     window.requestAnimationFrame(render);
   }
+  });
+}
+
+function scheduleInterestArtifact(callback) {
+  const runCallback = () => {
+    if (isCurrentCanvas(canvas)) {
+      callback();
+    }
+  };
+  const run = () => {
+    if (!isCurrentCanvas(canvas)) return;
+
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(runCallback, { timeout: 700 });
+    } else {
+      window.setTimeout(runCallback, 0);
+    }
+  };
+
+  window.setTimeout(run, GPU_ARTIFACT_DELAY);
 }
 
 async function initInterestTitle() {
@@ -490,7 +537,9 @@ async function initInterestTitle() {
     }),
   ]);
 
-  const TITLE_PIXEL_RATIO_CAP = 1.35;
+  if (!isCurrentCanvas(titleCanvas)) return;
+
+  const TITLE_PIXEL_RATIO_CAP = 1;
   const ctx = titleCanvas.getContext('2d');
   const particles = [];
   let width = 1;
@@ -498,7 +547,10 @@ async function initInterestTitle() {
   let pixelRatio = 1;
   let sourcePoints = [];
   let startedAt = performance.now();
+  let lastDrawAt = 0;
   const settleDuration = 1500;
+  const activeFrameInterval = 1000 / 42;
+  const settledFrameInterval = 1000 / 24;
 
   function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
@@ -530,7 +582,7 @@ async function initInterestTitle() {
     sourceCtx.fillText('interests', width * 0.5, centerY);
 
     const imageData = sourceCtx.getImageData(0, 0, width, height);
-    const sampleGap = 1;
+    const sampleGap = 2;
 
     for (let y = 0; y < height; y += sampleGap) {
       for (let x = 0; x < width; x += sampleGap) {
@@ -546,13 +598,15 @@ async function initInterestTitle() {
   }
 
   function createParticles() {
-    const count = Math.round(clamp(
-      sourcePoints.length * (width < 768 ? 0.52 : 0.66),
-      width < 768 ? 1800 : 3600,
-      width < 768 ? 4300 : 8400,
-    ));
-
     particles.length = 0;
+
+    if (!sourcePoints.length) return;
+
+    const count = Math.round(clamp(
+      sourcePoints.length * (width < 768 ? 0.38 : 0.44),
+      width < 768 ? 1200 : 2200,
+      width < 768 ? 2600 : 4300,
+    ));
 
     for (let index = 0; index < count; index += 1) {
       const point = sourcePoints[Math.floor(Math.random() * sourcePoints.length)];
@@ -566,8 +620,8 @@ async function initInterestTitle() {
         targetY: point.y,
         targetAlpha: Math.max(0.58, point.alpha),
         alpha: 0,
-        delay: Math.random() * 32,
-        size: randomBetween(width < 768 ? 1.0 : 1.12, width < 768 ? 1.75 : 2.2),
+        delay: Math.random() * 24,
+        size: randomBetween(width < 768 ? 1.14 : 1.28, width < 768 ? 2.08 : 2.68),
         jitter: randomBetween(0.18, 1.05),
         phase: Math.random() * Math.PI * 2,
       });
@@ -577,6 +631,8 @@ async function initInterestTitle() {
   }
 
   function resize() {
+    if (!isCurrentCanvas(titleCanvas)) return;
+
     width = window.innerWidth;
     height = window.innerHeight;
     pixelRatio = Math.min(window.devicePixelRatio || 1, TITLE_PIXEL_RATIO_CAP);
@@ -590,8 +646,18 @@ async function initInterestTitle() {
   }
 
   function draw(time) {
+    if (!isCurrentCanvas(titleCanvas)) return;
+
     const elapsed = Math.max(0, time - startedAt);
     const motion = clamp(1 - elapsed / settleDuration, 0, 1);
+    const frameInterval = motion > 0 ? activeFrameInterval : settledFrameInterval;
+
+    if (time - lastDrawAt < frameInterval) {
+      window.requestAnimationFrame(draw);
+      return;
+    }
+
+    lastDrawAt = time;
 
     ctx.clearRect(0, 0, width, height);
 

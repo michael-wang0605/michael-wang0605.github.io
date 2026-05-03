@@ -2,6 +2,7 @@
   'use strict';
 
   var KEY = 'mw_audio';
+  var STATE_UNKNOWN = 'unknown';
   var audio = document.getElementById('player-audio');
   var btnPlay = document.getElementById('btn-playpause');
   var btnRewind = document.getElementById('btn-rewind');
@@ -11,17 +12,18 @@
   var turntableBtn = document.getElementById('button');
 
   if (!audio) return;
+  if (window.MWAudioPlayer && window.MWAudioPlayer.audio === audio) return;
 
   var saved = {};
   var autoplayBlocked = false;
   var hasSyncedStartTime = false;
-  var shouldAutoplay = true;
 
   try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
 
+  var shouldAutoplay = saved.playing !== false;
   var targetTime = saved.position || 0;
 
-  if (saved.timestamp) {
+  if (shouldAutoplay && saved.timestamp) {
     targetTime += (Date.now() - saved.timestamp) / 1000;
   }
 
@@ -73,9 +75,12 @@
   }
 
   function resume() {
+    syncStartTime();
+
     if (shouldAutoplay) {
       requestPlay();
     } else {
+      audio.pause();
       setPlaying(false);
     }
   }
@@ -111,6 +116,7 @@
         shouldAutoplay = false;
         autoplayBlocked = false;
         audio.pause();
+        save();
       }
     });
   }
@@ -142,6 +148,7 @@
         shouldAutoplay = false;
         autoplayBlocked = false;
         audio.pause();
+        save();
       }
     });
   }
@@ -160,4 +167,13 @@
   setInterval(save, 500);
   window.addEventListener('pagehide', save);
   window.addEventListener('beforeunload', save);
+
+  window.MWAudioPlayer = {
+    audio: audio,
+    save: save,
+    getState: function () {
+      if (autoplayBlocked) return STATE_UNKNOWN;
+      return audio.paused ? 'paused' : 'playing';
+    },
+  };
 }());

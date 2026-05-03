@@ -83,7 +83,118 @@
 
     <script src="script.js"></script>
     <script src="manifesto-background.js?v=manifesto-particles-1"></script>
-    <script type="module" src="public/assets/aurelia/aurelia-manifesto.js?v=repo-aurelia-6"></script>
+    <script>
+      (function () {
+        var container = document.getElementById('manifesto-aurelia');
+        var delay = 280;
+        var lifecycle = window.MWPageLifecycle;
+        var token = lifecycle && lifecycle.getActiveToken ? lifecycle.getActiveToken() : 0;
+        var originalTimeEnd = console.timeEnd ? console.timeEnd.bind(console) : null;
+        var hasRevealed = false;
+
+        if (!container) return;
+
+        container.classList.remove('is-aurelia-ready');
+
+        function isCurrentPage() {
+          return (!lifecycle || lifecycle.getActiveToken() === token) &&
+            document.getElementById('manifesto-aurelia') === container;
+        }
+
+        function revealAurelia() {
+          if (hasRevealed || !isCurrentPage()) return;
+
+          var canvas = container.querySelector('canvas');
+
+          if (!canvas) return;
+
+          hasRevealed = true;
+          window.requestAnimationFrame(function () {
+            container.classList.add('is-aurelia-ready');
+            canvas.style.opacity = '1';
+            canvas.style.filter = 'brightness(1.55) contrast(1.14)';
+          });
+        }
+
+        function restoreConsole() {
+          if (console.timeEnd === patchedTimeEnd && originalTimeEnd) {
+            console.timeEnd = originalTimeEnd;
+          }
+        }
+
+        function patchedTimeEnd(label) {
+          var result;
+
+          if (originalTimeEnd) {
+            result = originalTimeEnd.apply(console, arguments);
+          }
+
+          if (label === 'firstFrame') {
+            revealAurelia();
+            restoreConsole();
+          }
+
+          return result;
+        }
+
+        if (originalTimeEnd) {
+          console.timeEnd = patchedTimeEnd;
+        }
+
+        var observer = new MutationObserver(function () {
+          var canvas = container.querySelector('canvas');
+
+          if (canvas) {
+            canvas.style.opacity = '0';
+            canvas.style.transition = 'opacity 1600ms var(--ease-out), filter 1600ms var(--ease-out)';
+            canvas.getBoundingClientRect();
+            observer.disconnect();
+          }
+        });
+
+        observer.observe(container, { childList: true });
+
+        function loadAurelia() {
+          var sourceUrl = new URL('public/assets/aurelia/aurelia-manifesto.js?v=repo-aurelia-6', window.location.href);
+
+          fetch(sourceUrl.href)
+            .then(function (response) {
+              if (!response.ok) {
+                throw new Error('Could not load Aurelia manifesto background.');
+              }
+
+              return response.text();
+            })
+            .then(function (code) {
+              if (!isCurrentPage()) return;
+
+              var run = function () {
+                Function(code + '\n//# sourceURL=' + sourceUrl.href)();
+              };
+
+              if (lifecycle && lifecycle.run) {
+                lifecycle.run(token, run);
+              } else {
+                run();
+              }
+            })
+            .catch(function (error) {
+              restoreConsole();
+              console.warn('Aurelia manifesto background failed.', error);
+            });
+        }
+
+        window.setTimeout(function () {
+          if ('requestIdleCallback' in window) {
+            window.requestIdleCallback(loadAurelia, { timeout: 700 });
+          } else {
+            loadAurelia();
+          }
+        }, delay);
+
+        window.setTimeout(restoreConsole, 15000);
+      }());
+    </script>
     <div class="turntable-fixed">
       <div class="volume-control">
         <input type="range" id="vol-slider" class="volume-slider" min="0" max="100" value="80" aria-label="Volume" />
