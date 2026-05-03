@@ -538,7 +538,7 @@ async function initTitleCanvas() {
 
   const ctx = titleCanvas.getContext('2d');
   const heading = document.querySelector('.intro-title');
-  const HOLD_MS = 2500;
+  const HOLD_MS = 500;
   const INTRO_DELAY_MS = 450;
   const STEP_MS = 620;
   const segmentKeys = ['michael', 'wang', 'wangChinese', 'bohanChinese'];
