@@ -2,6 +2,8 @@
 
 Static personal site (HTML, CSS, JavaScript). No build step or package manager; serve the repo over HTTP so ES module imports and WebGL backgrounds work.
 
+[view here](https://www.michaelwang.wiki)
+
 ## Run locally
 
 ```bash
