@@ -71,8 +71,9 @@ async function initLifeBackground() {
         vec3 dir = vec3(uv * zoom, 1.0);
         float time = iTime * speed + 0.25;
 
-        float a1 = 0.5 + iMouse.x / iResolution.x * 2.0;
-        float a2 = 0.8 + iMouse.y / iResolution.y * 2.0;
+        vec2 pointer = iMouse.xy / iResolution.xy - 0.5;
+        float a1 = 1.5 + pointer.x * 0.025;
+        float a2 = 1.8 + pointer.y * 0.025;
         mat2 rot1 = mat2(cos(a1), sin(a1), -sin(a1), cos(a1));
         mat2 rot2 = mat2(cos(a2), sin(a2), -sin(a2), cos(a2));
         dir.xz *= rot1;
@@ -122,6 +123,26 @@ async function initLifeBackground() {
 
   scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), starNestMaterial));
 
+  const targetMouse = new THREE.Vector2(0.5, 0.5);
+  const smoothMouse = new THREE.Vector2(0.5, 0.5);
+
+  function syncMouseUniform() {
+    const resolution = starNestMaterial.uniforms.iResolution.value;
+    starNestMaterial.uniforms.iMouse.value.set(
+      smoothMouse.x * resolution.x,
+      smoothMouse.y * resolution.y,
+      0,
+      0,
+    );
+  }
+
+  function onPointerMove(event) {
+    targetMouse.set(
+      event.clientX / Math.max(window.innerWidth, 1),
+      event.clientY / Math.max(window.innerHeight, 1),
+    );
+  }
+
   function resize() {
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -131,17 +152,20 @@ async function initLifeBackground() {
     renderer.setSize(width, height, false);
     renderer.setClearColor(0x000000, 1);
     starNestMaterial.uniforms.iResolution.value.set(width * pixelRatio, height * pixelRatio, 1);
-    starNestMaterial.uniforms.iMouse.value.set(width * pixelRatio * 0.5, height * pixelRatio * 0.5, 0, 0);
+    syncMouseUniform();
   }
 
   function animate() {
     starNestMaterial.uniforms.iTime.value = clock.getElapsedTime();
+    smoothMouse.lerp(targetMouse, 0.01);
+    syncMouseUniform();
     renderer.render(scene, camera);
     window.requestAnimationFrame(animate);
   }
 
   resize();
   window.addEventListener('resize', resize);
+  window.addEventListener('pointermove', onPointerMove, { passive: true });
   window.requestAnimationFrame(animate);
 }
 
@@ -238,6 +262,10 @@ async function initLifeTitle() {
   function smoothstep(value) {
     const t = clamp(value, 0, 1);
     return t * t * (3 - 2 * t);
+  }
+
+  function isContinuationItem(item) {
+    return item?.dataset.continuation === 'true';
   }
 
   function getWheelDistance(event) {
@@ -344,12 +372,21 @@ async function initLifeTitle() {
 
   function getTimelinePath() {
     if (width < 700) {
-      return timelineItems.map((_, index) => ({
-        x: 50,
-        y: 24 + index * 6.8,
-        angle: 0,
-        labelAngle: 0,
-      }));
+      return timelineItems.map((item, index) => {
+        const isContinuation = isContinuationItem(item);
+        const y = 24 + (isContinuation ? index - 1 : index) * 6.8;
+
+        return {
+          x: isContinuation ? 66 : 50,
+          y,
+          dateX: isContinuation ? 66 : 50,
+          dateY: y,
+          labelX: isContinuation ? 74 : 50,
+          labelY: isContinuation ? y : y + 4.2,
+          angle: 0,
+          labelAngle: 0,
+        };
+      });
     }
 
     // Three vertical tracks (top y=25, mid y=50, bot y=75) with consecutive events
@@ -367,6 +404,7 @@ async function initLifeTitle() {
       { x: 82, y: 25, dateX: 82, dateY: 19, labelX: 82, labelY: 33, angle: 0, labelAngle: 0 },
       { x: 18, y: 50, dateX: 18, dateY: 44, labelX: 18, labelY: 58, angle: 0, labelAngle: 0 },
       { x: 50, y: 75, dateX: 50, dateY: 69, labelX: 50, labelY: 83, angle: 0, labelAngle: 0 },
+      { x: 78, y: 75, dateX: 78, dateY: 75, labelX: 88, labelY: 75, angle: 0, labelAngle: 0 },
     ];
   }
 
@@ -408,6 +446,13 @@ async function initLifeTitle() {
   }
 
   function getTimelineTextAnchor(point, pathPoint, eventIndex, kind) {
+    if (isContinuationItem(timelineItems[eventIndex])) {
+      return {
+        x: clamp(((pathPoint.labelX ?? pathPoint.x) / 100) * width, 130, width - 130),
+        y: clamp(((pathPoint.labelY ?? pathPoint.y) / 100) * height, height * 0.08, height * 0.9),
+      };
+    }
+
     if (width < 700) {
       return {
         x: clamp(point.x, 130, width - 130),
@@ -575,6 +620,7 @@ async function initLifeTitle() {
     timelineParticleBuckets.length = 0;
 
     timelineItems.forEach((item, index) => {
+      const isContinuation = isContinuationItem(item);
       const point = path[index] || path[path.length - 1];
       const particlePoint = timelinePathPoints[index] || {
         x: (point.x / 100) * width,
@@ -589,23 +635,27 @@ async function initLifeTitle() {
         addLineParticles(timelinePathPoints[index - 1], particlePoint, index);
       }
 
-      addDotParticles(particlePoint, index);
+      if (!isContinuation) {
+        addDotParticles(particlePoint, index);
+      }
 
-      const datePoints = createTimelineTextPoints({
-        text: date,
-        x: dateAnchor.x,
-        y: dateAnchor.y,
-        kind: 'date',
-      });
+      const datePoints = !isContinuation && date
+        ? createTimelineTextPoints({
+          text: date,
+          x: dateAnchor.x,
+          y: dateAnchor.y,
+          kind: 'date',
+        })
+        : [];
       const labelPoints = createTimelineTextPoints({
         text: label,
         x: labelAnchor.x,
         y: labelAnchor.y,
-        kind: 'label',
+        kind: isContinuation ? 'continuation' : 'label',
       });
 
       addTimelineTextParticles(datePoints, index, 'date');
-      addTimelineTextParticles(labelPoints, index, 'label');
+      addTimelineTextParticles(labelPoints, index, isContinuation ? 'continuation' : 'label');
     });
   }
 
@@ -674,7 +724,9 @@ async function initLifeTitle() {
           continue;
         }
 
-        const textParticle = particle.kind === 'date' || particle.kind === 'label';
+        const textParticle = particle.kind === 'date'
+          || particle.kind === 'label'
+          || particle.kind === 'continuation';
         const shimmer = Math.sin(time * 0.004 + particle.phase)
           * particle.jitter
           * (textParticle ? 0.08 : 0.2 + progress * 0.35);
