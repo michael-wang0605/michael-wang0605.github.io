@@ -1,6 +1,8 @@
 (() => {
 const canvas = document.getElementById('contact-field-canvas');
+const titleCanvas = document.getElementById('contact-title-canvas');
 const FIELD_PIXEL_RATIO_CAP = 1.65;
+const TITLE_PIXEL_RATIO_CAP = 1.35;
 const DESKTOP_BLADE_COUNT = 5600;
 const MOBILE_BLADE_COUNT = 2600;
 
@@ -8,6 +10,164 @@ if (canvas) {
   initContactField().catch((error) => {
     console.warn('Contact field background failed.', error);
   });
+}
+
+if (titleCanvas) {
+  initContactTitle().catch((error) => {
+    console.warn('Contact title animation failed.', error);
+  });
+}
+
+async function initContactTitle() {
+  await Promise.race([
+    document.fonts.ready,
+    new Promise((resolve) => {
+      window.setTimeout(resolve, 1200);
+    }),
+  ]);
+
+  const ctx = titleCanvas.getContext('2d');
+  const particles = [];
+  let width = 1;
+  let height = 1;
+  let pixelRatio = 1;
+  let sourcePoints = [];
+  let startedAt = performance.now();
+  const settleDuration = 1500;
+
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function randomBetween(min, max) {
+    return min + Math.random() * (max - min);
+  }
+
+  function createTitleSource() {
+    const source = document.createElement('canvas');
+    const sourceCtx = source.getContext('2d');
+    const titleSize = width < 768
+      ? clamp(width * 0.16, 72, 96)
+      : clamp(width * 0.078, 92, 132);
+    const centerY = width < 768
+      ? clamp(height * 0.205, 144, 182)
+      : clamp(height * 0.19, 150, 190);
+    const fontStack = '"Noto Sans JP", "Roobert", Helvetica, Arial, sans-serif';
+    const points = [];
+
+    source.width = width;
+    source.height = height;
+    sourceCtx.clearRect(0, 0, width, height);
+    sourceCtx.fillStyle = '#fff';
+    sourceCtx.font = `400 ${titleSize}px ${fontStack}`;
+    sourceCtx.textAlign = 'center';
+    sourceCtx.textBaseline = 'middle';
+    sourceCtx.fillText('contact', width * 0.5, centerY);
+
+    const imageData = sourceCtx.getImageData(0, 0, width, height);
+    const sampleGap = 1;
+
+    for (let y = 0; y < height; y += sampleGap) {
+      for (let x = 0; x < width; x += sampleGap) {
+        const alpha = imageData.data[(y * width + x) * 4 + 3];
+
+        if (alpha > 34) {
+          points.push({ x, y, alpha: alpha / 255 });
+        }
+      }
+    }
+
+    return points;
+  }
+
+  function createParticles() {
+    const count = Math.round(clamp(
+      sourcePoints.length * (width < 768 ? 0.58 : 0.72),
+      width < 768 ? 1700 : 3200,
+      width < 768 ? 3900 : 7600,
+    ));
+
+    particles.length = 0;
+
+    for (let index = 0; index < count; index += 1) {
+      const point = sourcePoints[Math.floor(Math.random() * sourcePoints.length)];
+      const x = randomBetween(width * 0.18, width * 0.82);
+      const y = randomBetween(height * 0.36, height * 0.62);
+
+      particles.push({
+        x,
+        y,
+        targetX: point.x,
+        targetY: point.y,
+        targetAlpha: Math.max(0.58, point.alpha),
+        alpha: 0,
+        delay: Math.random() * 32,
+        size: randomBetween(width < 768 ? 1.05 : 1.15, width < 768 ? 1.9 : 2.35),
+        jitter: randomBetween(0.18, 1.05),
+        phase: Math.random() * Math.PI * 2,
+      });
+    }
+
+    startedAt = performance.now();
+  }
+
+  function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    pixelRatio = Math.min(window.devicePixelRatio || 1, TITLE_PIXEL_RATIO_CAP);
+    titleCanvas.width = Math.floor(width * pixelRatio);
+    titleCanvas.height = Math.floor(height * pixelRatio);
+    titleCanvas.style.width = `${width}px`;
+    titleCanvas.style.height = `${height}px`;
+    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    sourcePoints = createTitleSource();
+    createParticles();
+  }
+
+  function draw(time) {
+    const elapsed = Math.max(0, time - startedAt);
+    const motion = clamp(1 - elapsed / settleDuration, 0, 1);
+
+    ctx.clearRect(0, 0, width, height);
+
+    for (let index = 0; index < particles.length; index += 1) {
+      const particle = particles[index];
+
+      if (particle.delay > 0) {
+        particle.delay -= 1;
+        particle.x += randomBetween(-12, 12) * motion;
+        particle.y += randomBetween(-8, 8) * motion;
+      } else {
+        const pull = 0.07 + (1 - motion) * 0.09;
+        particle.x += (particle.targetX - particle.x) * pull;
+        particle.y += (particle.targetY - particle.y) * pull;
+        particle.alpha += (particle.targetAlpha - particle.alpha) * 0.08;
+      }
+
+      const visibleAlpha = clamp(particle.alpha, 0, 1);
+
+      if (visibleAlpha < 0.01) {
+        continue;
+      }
+
+      const shimmer = Math.sin(time * 0.004 + particle.phase) * particle.jitter * (motion + 0.1);
+      ctx.globalAlpha = visibleAlpha;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(
+        particle.x + shimmer,
+        particle.y - shimmer * 0.4,
+        particle.size,
+        particle.size,
+      );
+    }
+
+    ctx.globalAlpha = 1;
+    window.requestAnimationFrame(draw);
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+  window.requestAnimationFrame(draw);
 }
 
 async function initContactField() {
@@ -19,11 +179,15 @@ async function initContactField() {
     powerPreference: 'high-performance',
   });
   const scene = new THREE.Scene();
+  const postScene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 80);
+  const postCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const clock = new THREE.Clock();
   const targetPointer = new THREE.Vector2(0, 0);
   const smoothPointer = new THREE.Vector2(0, 0);
   let grass = null;
+  let fieldTarget = null;
+  let dofMaterial = null;
   let width = 1;
   let height = 1;
 
@@ -56,6 +220,79 @@ async function initContactField() {
     return geometry;
   }
 
+  function createRenderTarget(targetWidth, targetHeight) {
+    return new THREE.WebGLRenderTarget(targetWidth, targetHeight, {
+      depthBuffer: true,
+      stencilBuffer: false,
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat,
+      type: THREE.UnsignedByteType,
+    });
+  }
+
+  function setupDepthOfFieldPass() {
+    dofMaterial = new THREE.ShaderMaterial({
+      depthWrite: false,
+      depthTest: false,
+      uniforms: {
+        uScene: { value: null },
+        uResolution: { value: new THREE.Vector2(1, 1) },
+        uBlurStrength: { value: 1.16 },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+
+        void main() {
+          vUv = uv;
+          gl_Position = vec4(position.xy, 0.0, 1.0);
+        }
+      `,
+      fragmentShader: `
+        precision mediump float;
+
+        uniform sampler2D uScene;
+        uniform vec2 uResolution;
+        uniform float uBlurStrength;
+
+        varying vec2 vUv;
+
+        float luminance(vec3 color) {
+          return dot(color, vec3(0.299, 0.587, 0.114));
+        }
+
+        void main() {
+          vec4 sharp = texture2D(uScene, vUv);
+          vec2 texel = 1.0 / uResolution;
+          float fieldMask = smoothstep(0.012, 0.13, luminance(sharp.rgb));
+          float horizonDepth = smoothstep(0.45, 0.76, vUv.y);
+          float blurAmount = horizonDepth * fieldMask * uBlurStrength;
+          vec2 radius = texel * mix(0.0, 5.2, blurAmount);
+
+          vec4 blur = sharp * 0.18;
+          blur += texture2D(uScene, vUv + vec2(-4.0, 0.0) * radius) * 0.05;
+          blur += texture2D(uScene, vUv + vec2(-2.0, 0.0) * radius) * 0.09;
+          blur += texture2D(uScene, vUv + vec2( 2.0, 0.0) * radius) * 0.09;
+          blur += texture2D(uScene, vUv + vec2( 4.0, 0.0) * radius) * 0.05;
+          blur += texture2D(uScene, vUv + vec2(0.0, -4.0) * radius) * 0.05;
+          blur += texture2D(uScene, vUv + vec2(0.0, -2.0) * radius) * 0.09;
+          blur += texture2D(uScene, vUv + vec2(0.0,  2.0) * radius) * 0.09;
+          blur += texture2D(uScene, vUv + vec2(0.0,  4.0) * radius) * 0.05;
+          blur += texture2D(uScene, vUv + vec2(-2.0, -2.0) * radius) * 0.08;
+          blur += texture2D(uScene, vUv + vec2( 2.0, -2.0) * radius) * 0.08;
+          blur += texture2D(uScene, vUv + vec2(-2.0,  2.0) * radius) * 0.08;
+          blur += texture2D(uScene, vUv + vec2( 2.0,  2.0) * radius) * 0.08;
+          blur.rgb *= 0.86 + horizonDepth * 0.1;
+
+          vec3 color = mix(sharp.rgb, blur.rgb, blurAmount);
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `,
+    });
+
+    postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), dofMaterial));
+  }
+
   function createGrassField() {
     if (grass) {
       grass.geometry.dispose();
@@ -64,9 +301,11 @@ async function initContactField() {
     }
 
     const narrow = width < 768;
-    const bladeCount = narrow ? MOBILE_BLADE_COUNT : DESKTOP_BLADE_COUNT;
-    const columns = Math.round(Math.sqrt(bladeCount * 1.45));
-    const rows = Math.ceil(bladeCount / columns);
+    const baseBladeCount = narrow ? MOBILE_BLADE_COUNT : DESKTOP_BLADE_COUNT;
+    const frontBladeCount = Math.round(baseBladeCount * 0.25);
+    const bladeCount = baseBladeCount + frontBladeCount;
+    const columns = Math.round(Math.sqrt(baseBladeCount * 1.45));
+    const rows = Math.ceil(baseBladeCount / columns);
     const fieldWidth = narrow ? 13.5 : 18.5;
     const fieldDepth = narrow ? 16 : 18.5;
     const offsets = new Float32Array(bladeCount * 3);
@@ -74,21 +313,29 @@ async function initContactField() {
     const scales = new Float32Array(bladeCount);
 
     for (let index = 0; index < bladeCount; index += 1) {
+      const foregroundBlade = index >= baseBladeCount;
       const column = index % columns;
       const row = Math.floor(index / columns);
-      const x = ((column + Math.random()) / columns - 0.5) * fieldWidth;
-      const z = 5.2 - ((row + Math.random()) / rows) * fieldDepth;
-      const hill = Math.sin(x * 0.52 + z * 0.34) * 0.08 + Math.sin(z * 0.82) * 0.035;
-      const depthGrowth = THREE.MathUtils.smoothstep(5.2 - z, 0, fieldDepth);
+      const x = foregroundBlade
+        ? (Math.random() - 0.5) * fieldWidth
+        : ((column + Math.random()) / columns - 0.5) * fieldWidth;
+      const z = foregroundBlade
+        ? 5.2 - Math.pow(Math.random(), 1.35) * fieldDepth * 0.42
+        : 5.2 - ((row + Math.random()) / rows) * fieldDepth;
+      const waveA = Math.sin(Math.hypot(x + 4.4, z + 1.6) * 1.38);
+      const waveB = Math.sin(Math.hypot(x - 5.8, z + 6.4) * 0.92);
+      const waveC = Math.sin(x * 0.42 - z * 0.34);
+      const hill = (waveA - waveB) * 0.18 + waveC * 0.09;
+      const depthProgress = THREE.MathUtils.smoothstep(5.2 - z, 0, fieldDepth);
 
       offsets[index * 3] = x;
-      offsets[index * 3 + 1] = hill - 0.88;
+      offsets[index * 3 + 1] = hill - (narrow ? 1.42 : 1.62);
       offsets[index * 3 + 2] = z;
       randoms[index * 4] = Math.random();
       randoms[index * 4 + 1] = Math.random();
       randoms[index * 4 + 2] = Math.random();
       randoms[index * 4 + 3] = Math.random();
-      scales[index] = randomBetween(0.68, 1.28) * (0.74 + depthGrowth * 0.44);
+      scales[index] = randomBetween(0.68, 1.28) * (0.92 - depthProgress * 0.24);
     }
 
     const geometry = createBladeGeometry();
@@ -183,13 +430,27 @@ async function initContactField() {
     width = window.innerWidth;
     height = window.innerHeight;
     const pixelRatio = Math.min(window.devicePixelRatio || 1, FIELD_PIXEL_RATIO_CAP);
+    const targetWidth = Math.max(1, Math.floor(width * pixelRatio));
+    const targetHeight = Math.max(1, Math.floor(height * pixelRatio));
 
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(width, height, false);
     camera.aspect = width / Math.max(height, 1);
-    camera.position.set(0, width < 768 ? 1.45 : 1.28, width < 768 ? 7.4 : 7.0);
-    camera.lookAt(0, -0.18, -3.8);
+    camera.position.set(0, width < 768 ? 1.68 : 1.56, width < 768 ? 8.0 : 7.75);
+    camera.lookAt(0, width < 768 ? -0.72 : -0.88, -3.95);
     camera.updateProjectionMatrix();
+
+    if (!fieldTarget) {
+      fieldTarget = createRenderTarget(targetWidth, targetHeight);
+    } else {
+      fieldTarget.setSize(targetWidth, targetHeight);
+    }
+
+    if (dofMaterial) {
+      dofMaterial.uniforms.uResolution.value.set(targetWidth, targetHeight);
+      dofMaterial.uniforms.uScene.value = fieldTarget.texture;
+    }
+
     createGrassField();
   }
 
@@ -208,10 +469,20 @@ async function initContactField() {
       grass.material.uniforms.uTime.value = elapsed;
       grass.material.uniforms.uIntro.value = THREE.MathUtils.smoothstep(elapsed, 0.25, 1.9);
     }
-    renderer.render(scene, camera);
+    if (fieldTarget && dofMaterial) {
+      renderer.setRenderTarget(fieldTarget);
+      renderer.clear();
+      renderer.render(scene, camera);
+      renderer.setRenderTarget(null);
+      renderer.clear();
+      renderer.render(postScene, postCamera);
+    } else {
+      renderer.render(scene, camera);
+    }
     window.requestAnimationFrame(animate);
   }
 
+  setupDepthOfFieldPass();
   resize();
   window.addEventListener('resize', resize);
   window.addEventListener('pointermove', onPointerMove, { passive: true });

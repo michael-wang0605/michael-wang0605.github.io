@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;600;700;800&family=Source+Code+Pro:wght@400;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="variables.css" />
@@ -15,6 +15,7 @@
   </head>
   <body class="contact-page">
     <canvas id="contact-field-canvas" class="contact-field-canvas" aria-hidden="true"></canvas>
+    <canvas id="contact-title-canvas" class="contact-title-canvas" aria-hidden="true"></canvas>
 
     <nav class="top-links" aria-label="Primary pages">
       <a href="life.html" data-i18n="nav.life">Life</a>
@@ -31,7 +32,26 @@
     <main class="contact-main">
       <a class="back-link" href="index.html" data-i18n="nav.home">Home</a>
       <section class="contact-copy" aria-label="Contact">
-        <h1 data-i18n="page.contact">contact</h1>
+        <h1 class="contact-fallback-title" data-i18n="page.contact">contact</h1>
+        <p class="contact-intro">
+          <span>good places of contact. inquire accordingly; please don't make me regret the transparency.</span>
+          <span>&gt;&gt; send a signal.</span>
+        </p>
+        <span class="contact-rule" aria-hidden="true"></span>
+        <dl class="contact-list">
+          <div>
+            <dt>inquiries</dt>
+            <dd><a href="mailto:mwang0605@gmail.com">mwang0605@gmail.com</a></dd>
+          </div>
+          <div>
+            <dt>academia</dt>
+            <dd><a href="mailto:mwang815@gatech.edu">mwang815@gatech.edu</a></dd>
+          </div>
+          <div>
+            <dt>book a time</dt>
+            <dd><a href="https://cal.com/michael-wang/intro" target="_blank" rel="noreferrer">cal.com</a></dd>
+          </div>
+        </dl>
       </section>
     </main>
     <script src="script.js"></script>
