@@ -1,9 +1,32 @@
 const canvas = document.getElementById('interest-shader-canvas');
 const titleCanvas = document.getElementById('interest-title-canvas');
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function scheduleInterestPaintFirst(callback) {
+  if (prefersReducedMotion) {
+    callback();
+    return;
+  }
+
+  requestAnimationFrame(function () {
+    requestAnimationFrame(callback);
+  });
+}
+
+if (document.body.classList.contains('interest-page') && prefersReducedMotion) {
+  document.body.classList.add(
+    'interest-shader-revealed',
+    'interest-title-canvas-revealed',
+    'interest-title-handoff-complete',
+  );
+}
 
 if (titleCanvas) {
-  initInterestTitle().catch((error) => {
-    console.warn('Interest title animation failed.', error);
+  scheduleInterestPaintFirst(function () {
+    initInterestTitle().catch((error) => {
+      console.warn('Interest title animation failed.', error);
+      document.body.classList.add('interest-title-canvas-revealed', 'interest-title-handoff-complete');
+    });
   });
 }
 
@@ -18,7 +41,9 @@ if (canvas) {
 
   if (!gl) {
     console.warn('Interest background failed: WebGL is unavailable.');
+    document.body.classList.add('interest-shader-revealed');
   } else {
+    scheduleInterestPaintFirst(function startInterestShader() {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const vertexShader = `
@@ -462,6 +487,8 @@ if (canvas) {
       gl.viewport(0, 0, width, height);
     }
 
+    let shaderWarmFrames = 0;
+
     function render(now) {
       resize();
 
@@ -473,12 +500,21 @@ if (canvas) {
       gl.uniform1f(timeLocation, (now * 0.001) * (reducedMotion ? 0.12 : 0.72));
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
+      if (!prefersReducedMotion) {
+        shaderWarmFrames += 1;
+
+        if (shaderWarmFrames === 3) {
+          document.body.classList.add('interest-shader-revealed');
+        }
+      }
+
       window.requestAnimationFrame(render);
     }
 
     resize();
     window.addEventListener('resize', resize);
     window.requestAnimationFrame(render);
+    });
   }
 }
 

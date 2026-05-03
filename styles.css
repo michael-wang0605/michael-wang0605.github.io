@@ -324,6 +324,78 @@ button {
   pointer-events: none;
 }
 
+.interest-page .interest-shader-canvas {
+  opacity: 1;
+  transition: opacity 1.65s cubic-bezier(0.33, 0, 0.2, 1);
+}
+
+.interest-page .interest-title-canvas {
+  opacity: 1;
+  transition: opacity 0.85s cubic-bezier(0.33, 0, 0.2, 1);
+}
+
+.interest-page.interest-visuals-deferred .interest-shader-canvas,
+.interest-page.interest-visuals-deferred .interest-title-canvas {
+  opacity: 0;
+}
+
+.interest-page.interest-visuals-deferred.interest-shader-revealed .interest-shader-canvas {
+  opacity: 1;
+}
+
+.interest-page.interest-visuals-deferred.interest-title-canvas-revealed .interest-title-canvas {
+  opacity: 1;
+}
+
+.interest-page.interest-visuals-deferred:not(.interest-title-handoff-complete) .interest-title-canvas {
+  z-index: 4;
+}
+
+.interest-page.interest-visuals-deferred:not(.interest-title-handoff-complete) .interest-fallback-title {
+  position: fixed;
+  top: clamp(118px, 21vh, 188px);
+  left: 50%;
+  z-index: 3;
+  width: min(92vw, 1200px);
+  height: auto;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  clip: auto;
+  clip-path: none;
+  white-space: normal;
+  color: #fff;
+  font-size: max(8vw, 72px);
+  font-weight: 400;
+  line-height: 0.934;
+  letter-spacing: 0;
+  text-align: center;
+  text-transform: none;
+  text-shadow: 0 0 22px rgba(0, 0, 0, 0.75), 0 0 60px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity 0.55s ease;
+}
+
+.interest-page.interest-title-handoff-complete .interest-fallback-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  opacity: 1;
+  transform: none;
+  left: auto;
+  top: auto;
+  z-index: auto;
+  font-size: inherit;
+  text-shadow: none;
+  pointer-events: none;
+}
+
 .interest-page .blank-page-main {
   position: relative;
   z-index: 2;
@@ -917,6 +989,81 @@ button {
   pointer-events: none;
 }
 
+.manifesto-page .manifesto-aurelia {
+  opacity: 1;
+  transition: opacity 2.35s cubic-bezier(0.33, 0, 0.2, 1);
+}
+
+.manifesto-page.manifesto-visuals-deferred .manifesto-aurelia {
+  opacity: 0;
+}
+
+.manifesto-page.manifesto-backdrop-revealed .manifesto-aurelia {
+  opacity: 1;
+}
+
+.manifesto-page .manifesto-title-canvas {
+  opacity: 1;
+  transition: opacity 0.75s cubic-bezier(0.33, 0, 0.2, 1);
+}
+
+.manifesto-page.manifesto-visuals-deferred .manifesto-title-canvas {
+  opacity: 0;
+}
+
+.manifesto-page.manifesto-visuals-deferred.manifesto-title-canvas-revealed .manifesto-title-canvas {
+  opacity: 1;
+}
+
+.manifesto-page.manifesto-visuals-deferred:not(.manifesto-title-handoff-complete) .manifesto-title-canvas {
+  z-index: 34;
+}
+
+.manifesto-page.manifesto-visuals-deferred:not(.manifesto-title-handoff-complete) .manifesto-fallback-title {
+  position: fixed;
+  top: clamp(118px, 21vh, 188px);
+  left: 50%;
+  z-index: 33;
+  width: min(92vw, 1200px);
+  height: auto;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  clip: auto;
+  clip-path: none;
+  white-space: normal;
+  color: #fff;
+  font-size: max(8vw, 72px);
+  font-weight: 400;
+  line-height: 0.934;
+  letter-spacing: 0;
+  text-align: center;
+  text-transform: none;
+  text-shadow: 0 0 22px rgba(0, 0, 0, 0.75), 0 0 60px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity 0.5s ease;
+}
+
+.manifesto-page.manifesto-title-handoff-complete .manifesto-fallback-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  opacity: 1;
+  transform: none;
+  left: auto;
+  top: auto;
+  z-index: auto;
+  font-size: inherit;
+  text-shadow: none;
+  pointer-events: none;
+}
+
 .manifesto-main {
   position: relative;
   z-index: 30;
@@ -1217,6 +1364,16 @@ button {
     line-height: 1.35;
   }
 
+  .interest-page.interest-visuals-deferred:not(.interest-title-handoff-complete) .interest-fallback-title {
+    top: clamp(88px, 17vh, 138px);
+    font-size: max(9.5vw, 52px);
+  }
+
+  .manifesto-page.manifesto-visuals-deferred:not(.manifesto-title-handoff-complete) .manifesto-fallback-title {
+    top: clamp(88px, 17vh, 138px);
+    font-size: max(9.5vw, 52px);
+  }
+
   .interest-copy {
     position: fixed;
     top: clamp(280px, 43vh, 340px);
@@ -1352,6 +1509,13 @@ button {
   .life-scroll-cue-line span {
     animation: none;
     opacity: 1;
+  }
+
+  .interest-page .interest-shader-canvas,
+  .interest-page .interest-title-canvas,
+  .manifesto-page .manifesto-aurelia,
+  .manifesto-page .manifesto-title-canvas {
+    transition: none !important;
   }
 }
 

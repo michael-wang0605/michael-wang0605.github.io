@@ -1,10 +1,33 @@
 (() => {
 const titleCanvas = document.getElementById('manifesto-title-canvas');
 const TITLE_PIXEL_RATIO_CAP = 1.35;
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function scheduleManifestoPaintFirst(callback) {
+  if (prefersReducedMotion) {
+    callback();
+    return;
+  }
+
+  requestAnimationFrame(function () {
+    requestAnimationFrame(callback);
+  });
+}
+
+if (document.body.classList.contains('manifesto-page') && prefersReducedMotion) {
+  document.body.classList.add(
+    'manifesto-title-canvas-revealed',
+    'manifesto-title-handoff-complete',
+    'manifesto-backdrop-revealed',
+  );
+}
 
 if (titleCanvas) {
-  initManifestoTitle().catch((error) => {
-    console.warn('Manifesto title animation failed.', error);
+  scheduleManifestoPaintFirst(function () {
+    initManifestoTitle().catch((error) => {
+      console.warn('Manifesto title animation failed.', error);
+      document.body.classList.add('manifesto-title-canvas-revealed', 'manifesto-title-handoff-complete');
+    });
   });
 }
 
@@ -25,6 +48,7 @@ async function initManifestoTitle() {
   let sourcePoints = [];
   let startedAt = performance.now();
   const settleDuration = 1500;
+  let titleIntroFrames = 0;
 
   function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
@@ -155,6 +179,15 @@ async function initManifestoTitle() {
     }
 
     ctx.globalAlpha = 1;
+
+    if (!prefersReducedMotion && !document.body.classList.contains('manifesto-title-handoff-complete')) {
+      titleIntroFrames += 1;
+
+      if (titleIntroFrames === 14) {
+        document.body.classList.add('manifesto-title-canvas-revealed', 'manifesto-title-handoff-complete');
+      }
+    }
+
     window.requestAnimationFrame(draw);
   }
 
