@@ -53,8 +53,9 @@ async function initManifestoTitle() {
     const source = document.createElement('canvas');
     const sourceCtx = source.getContext('2d');
     const titleSize = width < 768
-      ? clamp(width * 0.155, 58, 92)
+      ? clamp(width * 0.132, 52, 76)
       : clamp(width * 0.07, 84, 122);
+    const centerX = width < 768 ? width * 0.38 : width * 0.5;
     const centerY = width < 768
       ? clamp(height * 0.18, 118, 150)
       : clamp(height * 0.18, 138, 178);
@@ -68,7 +69,7 @@ async function initManifestoTitle() {
     sourceCtx.font = `400 ${titleSize}px ${fontStack}`;
     sourceCtx.textAlign = 'center';
     sourceCtx.textBaseline = 'middle';
-    sourceCtx.fillText('manifesto', width * 0.5, centerY);
+    sourceCtx.fillText('manifesto', centerX, centerY);
 
     const imageData = sourceCtx.getImageData(0, 0, width, height);
     const sampleGap = 2;

@@ -205,6 +205,14 @@ async function initLifeTitle() {
     return min + Math.random() * (max - min);
   }
 
+  function getTimelineStep() {
+    return width < 700 ? 0.74 : timelineStep;
+  }
+
+  function getTimelineVisibleWindow() {
+    return width < 700 ? 1.55 : TIMELINE_VISIBLE_WINDOW;
+  }
+
   function getTrackedTextWidth(context, text, tracking, wordSpacing) {
     return Array.from(text).reduce((total, character, index, characters) => {
       const spacing = index < characters.length - 1
@@ -281,7 +289,7 @@ async function initLifeTitle() {
   }
 
   function getMaxScrollProgress() {
-    return 1 + timelineItems.length * timelineStep + 0.8;
+    return 1 + timelineItems.length * getTimelineStep() + (width < 700 ? 0.45 : 0.8);
   }
 
   function syncScrollCue() {
@@ -297,7 +305,9 @@ async function initLifeTitle() {
     }
 
     targetScrollProgress = clamp(
-      targetScrollProgress + distance / Math.max(height * 1.28, 760),
+      targetScrollProgress + distance / (width < 700
+        ? Math.max(height * 0.58, 390)
+        : Math.max(height * 1.28, 760)),
       0,
       getMaxScrollProgress(),
     );
@@ -327,7 +337,7 @@ async function initLifeTitle() {
     }
 
     event.preventDefault();
-    applyScrollDistance((touchStartY - currentY) * 1.65);
+    applyScrollDistance((touchStartY - currentY) * (width < 700 ? 2.55 : 1.65));
     touchStartY = currentY;
   }
 
@@ -372,17 +382,31 @@ async function initLifeTitle() {
 
   function getTimelinePath() {
     if (width < 700) {
+      const mobileRows = [
+        { x: 34, y: 26, dateX: 34, dateY: 18, labelX: 34, labelY: 35 },
+        { x: 66, y: 52, dateX: 66, dateY: 44, labelX: 66, labelY: 61 },
+        { x: 34, y: 78, dateX: 34, dateY: 70, labelX: 34, labelY: 87 },
+        { x: 66, y: 26, dateX: 66, dateY: 18, labelX: 66, labelY: 35 },
+        { x: 34, y: 52, dateX: 34, dateY: 44, labelX: 34, labelY: 61 },
+        { x: 66, y: 78, dateX: 66, dateY: 70, labelX: 66, labelY: 87 },
+      ];
+
       return timelineItems.map((item, index) => {
-        const isContinuation = isContinuationItem(item);
-        const y = 24 + (isContinuation ? index - 1 : index) * 6.8;
+        if (isContinuationItem(item)) {
+          return {
+            x: 60,
+            y: 76,
+            dateX: 60,
+            dateY: 76,
+            labelX: 64,
+            labelY: 76,
+            angle: 0,
+            labelAngle: 0,
+          };
+        }
 
         return {
-          x: isContinuation ? 66 : 50,
-          y,
-          dateX: isContinuation ? 66 : 50,
-          dateY: y,
-          labelX: isContinuation ? 74 : 50,
-          labelY: isContinuation ? y : y + 4.2,
+          ...mobileRows[index % mobileRows.length],
           angle: 0,
           labelAngle: 0,
         };
@@ -428,8 +452,8 @@ async function initLifeTitle() {
   function getTimelineTextStyle(kind) {
     const fontStack = '"Noto Sans JP", "Roobert", Helvetica, Arial, sans-serif';
     const fontSize = kind === 'date'
-      ? clamp(width * 0.0175, width < 700 ? 18 : 22, width < 700 ? 25 : 34)
-      : clamp(width * 0.021, width < 700 ? 21 : 28, width < 700 ? 30 : 42);
+      ? clamp(width * 0.043, width < 700 ? 14 : 22, width < 700 ? 18 : 34)
+      : clamp(width * 0.047, width < 700 ? 15 : 28, width < 700 ? 20 : 42);
     const fontWeight = 400;
     const tracking = clamp(width * 0.001, width < 700 ? 0.55 : 1.1, width < 700 ? 1.2 : 2.05);
 
@@ -440,8 +464,8 @@ async function initLifeTitle() {
       fontStack,
       tracking,
       wordSpacing: tracking * 2.1,
-      lineHeight: fontSize * 1.28,
-      maxWidth: width < 700 ? width * 0.8 : 460,
+      lineHeight: fontSize * (width < 700 ? 1.34 : 1.28),
+      maxWidth: width < 700 ? width * 0.46 : 460,
     };
   }
 
@@ -454,9 +478,16 @@ async function initLifeTitle() {
     }
 
     if (width < 700) {
+      const anchorX = kind === 'date'
+        ? pathPoint.dateX ?? pathPoint.x
+        : pathPoint.labelX ?? pathPoint.x;
+      const anchorY = kind === 'date'
+        ? pathPoint.dateY ?? pathPoint.y
+        : pathPoint.labelY ?? pathPoint.y;
+
       return {
-        x: clamp(point.x, 130, width - 130),
-        y: point.y + (kind === 'date' ? -24 : 30),
+        x: clamp((anchorX / 100) * width, width * 0.2, width * 0.8),
+        y: clamp((anchorY / 100) * height, height * 0.13, height * 0.88),
       };
     }
 
@@ -639,6 +670,10 @@ async function initLifeTitle() {
         addDotParticles(particlePoint, index);
       }
 
+      if (width < 700) {
+        return;
+      }
+
       const datePoints = !isContinuation && date
         ? createTimelineTextPoints({
           text: date,
@@ -661,7 +696,7 @@ async function initLifeTitle() {
 
   function getTimelinePartProgress(eventIndex, kind, revealOffset = 0, lineProgress = 0) {
     const timelineProgress = Math.max(0, scrollProgress - 1);
-    const eventStart = eventIndex * timelineStep;
+    const eventStart = eventIndex * getTimelineStep();
     const dotDuration = 0.2;
     const dateOffset = 0.18;
     const dateDuration = 0.28;
@@ -691,8 +726,8 @@ async function initLifeTitle() {
       revealProgress = smoothstep((timelineProgress - eventStart - offset - revealOffset) / duration);
     }
 
-    const fadeStart = (eventIndex + TIMELINE_VISIBLE_WINDOW) * timelineStep + 0.08;
-    const fadeProgress = smoothstep((timelineProgress - fadeStart) / 0.5);
+    const fadeStart = (eventIndex + getTimelineVisibleWindow()) * getTimelineStep() + 0.08;
+    const fadeProgress = smoothstep((timelineProgress - fadeStart) / (width < 700 ? 0.34 : 0.5));
 
     return revealProgress * (1 - fadeProgress);
   }
@@ -701,7 +736,7 @@ async function initLifeTitle() {
     const timelineProgress = Math.max(0, scrollProgress - 1);
     const lastVisibleEvent = Math.min(
       timelineItems.length - 1,
-      Math.ceil((timelineProgress + 1.9) / timelineStep),
+      Math.ceil((timelineProgress + 1.9) / getTimelineStep()),
     );
 
     for (let eventIndex = 0; eventIndex <= lastVisibleEvent; eventIndex += 1) {
@@ -749,7 +784,7 @@ async function initLifeTitle() {
     const timelineProgress = Math.max(0, scrollProgress - 1);
 
     timelineItems.forEach((item, index) => {
-      const revealProgress = smoothstep((timelineProgress - index * timelineStep - 0.08) / 0.2);
+      const revealProgress = smoothstep((timelineProgress - index * getTimelineStep() - 0.08) / 0.2);
       const previousRevealProgress = lastTimelineReveals[index] ?? -1;
 
       if (Math.abs(revealProgress - previousRevealProgress) < 0.002) {
@@ -759,7 +794,7 @@ async function initLifeTitle() {
       lastTimelineReveals[index] = revealProgress;
 
       item.style.setProperty('--event-progress', revealProgress.toFixed(3));
-      item.style.setProperty('--event-opacity', '0');
+      item.style.setProperty('--event-opacity', width < 700 ? revealProgress.toFixed(3) : '0');
       item.style.setProperty('--event-scale', (0.92 + revealProgress * 0.08).toFixed(3));
       item.setAttribute('aria-hidden', revealProgress < 0.02 ? 'true' : 'false');
     });
@@ -769,10 +804,10 @@ async function initLifeTitle() {
     const source = document.createElement('canvas');
     const sourceCtx = source.getContext('2d');
     const titleSize = clamp(width * 0.16, width < 700 ? 72 : 120, width < 700 ? 128 : 220);
-    const subtitleSize = clamp(width * 0.026, width < 700 ? 14 : 20, width < 700 ? 21 : 34);
+    const subtitleSize = clamp(width * (width < 700 ? 0.041 : 0.026), width < 700 ? 16 : 20, width < 700 ? 24 : 34);
     const centerY = height * (width < 700 ? 0.47 : 0.45);
     const fontStack = '"Noto Sans JP", "Roobert", Helvetica, Arial, sans-serif';
-    const subtitleTracking = clamp(width * 0.0022, width < 700 ? 1.1 : 1.8, width < 700 ? 2.2 : 4.2);
+    const subtitleTracking = clamp(width * 0.0022, width < 700 ? 0.8 : 1.8, width < 700 ? 1.7 : 4.2);
     const subtitleWordSpacing = subtitleTracking * 2.4;
 
     source.width = width;
@@ -787,11 +822,14 @@ async function initLifeTitle() {
 
     sourceCtx.font = `400 ${subtitleSize}px ${fontStack}`;
     if (width < 700) {
+      const subtitleY = centerY + titleSize * 0.62;
+      const subtitleLineGap = subtitleSize * 1.34;
+
       fillTrackedText(
         sourceCtx,
         'a timeline of moments that shaped',
         width * 0.5,
-        centerY + titleSize * 0.55,
+        subtitleY,
         subtitleTracking,
         subtitleWordSpacing,
       );
@@ -799,7 +837,7 @@ async function initLifeTitle() {
         sourceCtx,
         'who i am today.',
         width * 0.5,
-        centerY + titleSize * 0.77,
+        subtitleY + subtitleLineGap,
         subtitleTracking,
         subtitleWordSpacing,
       );
@@ -858,13 +896,13 @@ async function initLifeTitle() {
         targetY: point.y,
         alpha: 0,
         targetAlpha: point.kind === 'subtitle'
-          ? Math.max(0.48, point.alpha * 0.7)
+          ? Math.max(width < 700 ? 0.62 : 0.48, point.alpha * (width < 700 ? 0.82 : 0.7))
           : Math.max(0.62, point.alpha),
         delay,
         exitStart: randomBetween(0, 0.46),
         exitDuration: randomBetween(0.28, 0.4),
         size: point.kind === 'subtitle'
-          ? randomBetween(width < 700 ? 0.95 : 1.08, width < 700 ? 1.75 : 2.2)
+          ? randomBetween(width < 700 ? 1.15 : 1.08, width < 700 ? 2.05 : 2.2)
           : randomBetween(width < 700 ? 1.1 : 1.25, width < 700 ? 2.1 : 2.6),
         jitter: randomBetween(0.18, 1.1),
         phase: Math.random() * Math.PI * 2,

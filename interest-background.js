@@ -348,19 +348,21 @@ if (canvas) {
       // Main
       void mainImage( out vec4 fragColor, in vec2 fragCoord )
       {
-          // Translate viewport
-          vec2 center = vec2(0.296, 0.29);
+          // Translate viewport. Mobile moves the artifact out of the text column.
+          float mobile = step(iResolution.x, 760.0);
+          vec2 center = mix(vec2(0.296, 0.29), vec2(0.735, 0.54), mobile);
           vec2 uv = (fragCoord/iResolution.xy - center) * vec2(1., iResolution.y / iResolution.x);
           vec2 uvx1 = ((fragCoord-vec2(2., 0.))/iResolution.xy - center) * vec2(1., iResolution.y / iResolution.x);
           vec2 uvx2 = ((fragCoord+vec2(2., 0.))/iResolution.xy - center) * vec2(1., iResolution.y / iResolution.x);
           vec2 uvy1 = ((fragCoord-vec2(0., 2.))/iResolution.xy - center) * vec2(1., iResolution.y / iResolution.x);
           vec2 uvy2 = ((fragCoord+vec2(0., 2.))/iResolution.xy - center) * vec2(1., iResolution.y / iResolution.x);
 
-          uv *= 1.2;
-          uvx1 *= 1.2;
-          uvx2 *= 1.2;
-          uvy1 *= 1.2;
-          uvy2 *= 1.2;
+          float viewportScale = mix(1.2, 1.85, mobile);
+          uv *= viewportScale;
+          uvx1 *= viewportScale;
+          uvx2 *= viewportScale;
+          uvy1 *= viewportScale;
+          uvy2 *= viewportScale;
 
           // Animate camera and compute camera ray
           mat3 crot = rotAxis(vec3(0., 1., 0.), iTime * 0.15);
