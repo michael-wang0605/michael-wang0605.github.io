@@ -55,7 +55,7 @@ async function initManifestoTitle() {
     const titleSize = width < 768
       ? clamp(width * 0.132, 52, 76)
       : clamp(width * 0.07, 84, 122);
-    const centerX = width < 768 ? width * 0.38 : width * 0.5;
+    const centerX = width * 0.5;
     const centerY = width < 768
       ? clamp(height * 0.18, 118, 150)
       : clamp(height * 0.18, 138, 178);

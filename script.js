@@ -538,7 +538,7 @@ async function initTitleCanvas() {
 
   const ctx = titleCanvas.getContext('2d');
   const heading = document.querySelector('.intro-title');
-  const HOLD_MS = 500;
+  const HOLD_MS = window.innerWidth < 768 ? 1800 : 500;
   const INTRO_DELAY_MS = 450;
   const STEP_MS = 620;
   const segmentKeys = ['michael', 'wang', 'wangChinese', 'bohanChinese'];
@@ -563,8 +563,11 @@ async function initTitleCanvas() {
   }
 
   function getFontSize() {
-    const baseSize = Math.max(window.innerWidth * 0.066, window.innerWidth < 768 ? 62 : 60);
-    return baseSize;
+    if (window.innerWidth < 768) {
+      return clamp(window.innerWidth * 0.118, 44, 52);
+    }
+
+    return Math.max(window.innerWidth * 0.066, 60);
   }
 
   function createTextSource({ text, x, y, fontSize, fontWeight = 400 }) {
@@ -602,13 +605,14 @@ async function initTitleCanvas() {
     const measuringCtx = measuringCanvas.getContext('2d');
     const fontSize = getFontSize();
     const chineseFontSize = fontSize * 1.08;
-    const centerY = height * 0.5 - 14;
+    const isNarrow = window.innerWidth < 768;
+    const centerY = height * 0.5 - (isNarrow ? 10 : 14);
     const fontStack = '"Noto Sans JP", "Roobert", Helvetica, Arial, sans-serif';
 
     measuringCtx.font = `400 ${fontSize}px ${fontStack}`;
     const michaelWidth = measuringCtx.measureText('michael').width;
     const wangWidth = measuringCtx.measureText('wang').width;
-    const englishGap = fontSize * 0.56;
+    const englishGap = fontSize * (isNarrow ? 0.38 : 0.56);
     const englishWidth = michaelWidth + englishGap + wangWidth;
     const michaelX = width * 0.5 - englishWidth * 0.5 + michaelWidth * 0.5;
     const wangX = width * 0.5 + englishWidth * 0.5 - wangWidth * 0.5;
@@ -616,7 +620,7 @@ async function initTitleCanvas() {
     measuringCtx.font = `400 ${chineseFontSize}px ${fontStack}`;
     const chineseWangWidth = measuringCtx.measureText('汪').width;
     const bohanWidth = measuringCtx.measureText('博涵').width;
-    const chineseGap = chineseFontSize * 0.2;
+    const chineseGap = chineseFontSize * (isNarrow ? 0.16 : 0.2);
     const chineseWidth = chineseWangWidth + chineseGap + bohanWidth;
     const chineseWangX = width * 0.5 - chineseWidth * 0.5 + chineseWangWidth * 0.5;
     const bohanX = width * 0.5 + chineseWidth * 0.5 - bohanWidth * 0.5;
@@ -639,9 +643,9 @@ async function initTitleCanvas() {
 
   function getParticleCount(points, segment) {
     const isChineseSegment = chineseKeys.includes(segment);
-    const multiplier = window.innerWidth < 768 ? 0.52 : 0.64;
-    const minimum = window.innerWidth < 768 ? 620 : 920;
-    const maximum = window.innerWidth < 768 ? 1900 : 3200;
+    const multiplier = window.innerWidth < 768 ? 0.72 : 0.64;
+    const minimum = window.innerWidth < 768 ? 860 : 920;
+    const maximum = window.innerWidth < 768 ? 2300 : 3200;
     const densityBoost = isChineseSegment ? 1.28 : 1;
 
     return Math.round(clamp(points.length * multiplier * densityBoost, minimum, maximum * densityBoost));
@@ -651,10 +655,10 @@ async function initTitleCanvas() {
     const isChineseSegment = chineseKeys.includes(segment);
 
     if (isChineseSegment) {
-      return randomBetween(0.95, window.innerWidth < 768 ? 1.7 : 1.9);
+      return randomBetween(0.95, window.innerWidth < 768 ? 2.15 : 1.9);
     }
 
-    return randomBetween(1.15, window.innerWidth < 768 ? 2.0 : 2.25);
+    return randomBetween(1.15, window.innerWidth < 768 ? 2.55 : 2.25);
   }
 
   function retargetParticle(particle, show, immediate = false) {
@@ -669,7 +673,7 @@ async function initTitleCanvas() {
     if (show) {
       particle.targetX = point.x;
       particle.targetY = point.y;
-      particle.targetAlpha = Math.max(0.58, point.alpha);
+      particle.targetAlpha = Math.max(window.innerWidth < 768 ? 0.72 : 0.58, point.alpha);
       particle.delay = immediate ? 0 : Math.random() * 26;
 
       if (particle.alpha <= 0.04 || immediate) {
@@ -686,7 +690,7 @@ async function initTitleCanvas() {
     if (immediate && show) {
       particle.x = point.x;
       particle.y = point.y;
-      particle.alpha = Math.max(0.58, point.alpha);
+      particle.alpha = Math.max(window.innerWidth < 768 ? 0.72 : 0.58, point.alpha);
       particle.targetAlpha = particle.alpha;
       particle.delay = 0;
     }
@@ -709,7 +713,7 @@ async function initTitleCanvas() {
 
       for (let index = 0; index < count; index += 1) {
         const point = points[Math.floor(Math.random() * points.length)];
-        const alpha = visible ? Math.max(0.58, point.alpha) : 0;
+        const alpha = visible ? Math.max(window.innerWidth < 768 ? 0.72 : 0.58, point.alpha) : 0;
         const particle = {
           segment,
           x: visible ? point.x : randomBetween(0, width),

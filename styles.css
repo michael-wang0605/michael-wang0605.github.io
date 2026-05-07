@@ -1090,11 +1090,12 @@ button {
 
 @media (max-width: 767px) {
   :root {
-    --gutter: 3.65vw;
+    --gutter: 16px;
   }
 
   .top-links {
     top: 20px;
+    right: var(--gutter);
     gap: 14px;
   }
 
@@ -1131,7 +1132,7 @@ button {
 
   .intro-foot {
     right: var(--gutter);
-    bottom: 30px;
+    bottom: 28px;
     left: var(--gutter);
     grid-template-columns: repeat(12, minmax(0, 1fr));
   }
@@ -1152,8 +1153,8 @@ button {
   }
 
   .equation-label {
-    top: 72vh;
-    font-size: max(4.8vw, 18px);
+    top: 71vh;
+    font-size: clamp(17px, 4.4vw, 19px);
   }
 
   .life-page {
@@ -1232,7 +1233,7 @@ button {
 
   .interest-page .blank-page-main {
     min-height: 100vh;
-    padding: 20px 16px 56px;
+    padding: 20px var(--gutter) 56px;
   }
 
   .interest-page::before {
@@ -1242,19 +1243,19 @@ button {
   }
 
   .interest-title-note {
-    top: clamp(166px, 26vh, 204px);
-    width: min(420px, 82vw);
-    font-size: clamp(10px, 2.55vw, 11.5px);
+    top: clamp(186px, 27vh, 224px);
+    width: min(420px, calc(100vw - 32px));
+    font-size: clamp(10px, 2.5vw, 11.5px);
     line-height: 1.45;
   }
 
   .interest-copy {
     position: fixed;
-    top: clamp(274px, 41vh, 326px);
+    top: clamp(314px, 43vh, 354px);
     right: auto;
     bottom: auto;
-    left: 16px;
-    width: min(232px, 57vw);
+    left: var(--gutter);
+    width: min(358px, calc(100vw - 32px));
     padding: 0;
     overflow: visible;
     border: 0;
@@ -1264,26 +1265,26 @@ button {
   }
 
   .interest-copy p {
-    margin-bottom: 8px;
-    font-size: clamp(8.8px, 2.25vw, 10px);
-    line-height: 1.36;
+    margin-bottom: 10px;
+    font-size: clamp(9px, 2.35vw, 10.4px);
+    line-height: 1.42;
     letter-spacing: 0;
   }
 
   .interest-goals {
-    gap: 13px;
-    margin-top: 15px;
+    gap: 14px;
+    margin-top: 18px;
   }
 
   .interest-goal-group h3 {
     margin-bottom: 6px;
     padding-bottom: 4px;
-    font-size: clamp(8.6px, 2.15vw, 9.8px);
+    font-size: clamp(8.8px, 2.2vw, 10px);
   }
 
   .interest-goal-group li {
-    font-size: clamp(8.4px, 2.1vw, 9.5px);
-    line-height: 1.3;
+    font-size: clamp(8.6px, 2.14vw, 9.8px);
+    line-height: 1.36;
   }
 
   .manifesto-page .social-links {
@@ -1292,17 +1293,17 @@ button {
 
   .back-link {
     top: 20px;
-    left: 16px;
+    left: var(--gutter);
     max-width: 42vw;
     font-size: 10.5px;
   }
 
   .contact-main {
-    padding: 20px 16px;
+    padding: 20px var(--gutter);
   }
 
   .contact-page .top-links {
-    right: 16px;
+    right: var(--gutter);
     width: min(210px, 62vw);
     justify-items: end;
   }
@@ -1316,9 +1317,9 @@ button {
   }
 
   .contact-copy {
-    top: clamp(230px, 33vh, 282px);
-    right: 16px;
-    left: 16px;
+    top: clamp(252px, 35vh, 296px);
+    right: var(--gutter);
+    left: var(--gutter);
     width: auto;
     max-width: 330px;
   }
@@ -1339,9 +1340,9 @@ button {
   }
 
   .manifesto-meta {
-    right: 16px;
+    right: var(--gutter);
     bottom: 20px;
-    left: 16px;
+    left: var(--gutter);
   }
 
   .manifesto-meta p {
@@ -1350,7 +1351,7 @@ button {
   }
 
   .manifesto-main {
-    padding: 20px 16px 56px;
+    padding: 20px var(--gutter) 56px;
   }
 
   .manifesto-stage {
@@ -1358,23 +1359,23 @@ button {
   }
 
   .manifesto-title-note {
-    top: clamp(166px, 26vh, 204px);
-    width: min(420px, 82vw);
-    font-size: clamp(8.5px, 1.58vw, 10px);
-    line-height: 1.35;
+    top: clamp(184px, 27vh, 222px);
+    width: min(420px, calc(100vw - 32px));
+    font-size: clamp(8.8px, 2.15vw, 10px);
+    line-height: 1.38;
   }
 
   .manifesto-copy {
     position: fixed;
-    top: clamp(224px, 35vh, 270px);
-    right: 16px;
+    top: clamp(268px, 36vh, 304px);
+    right: var(--gutter);
     bottom: 18px;
-    left: 16px;
+    left: var(--gutter);
     width: auto;
     max-width: none;
     overflow: hidden;
-    font-size: clamp(7.8px, 1.42vw, 8.7px);
-    line-height: 1.28;
+    font-size: clamp(8.2px, 2.05vw, 9.2px);
+    line-height: 1.34;
     letter-spacing: 0;
   }
 
@@ -2508,12 +2509,7 @@ html.is-audio-awaiting-activation #btn-playpause {
 
 @media (max-width: 767px) {
   .turntable-fixed {
-    top: 118px;
-    right: 12px;
-    z-index: 8;
-    width: 112px;
-    height: 128px;
-    display: block;
+    display: none;
   }
 
   .volume-control {

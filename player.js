@@ -15,6 +15,22 @@
   if (!audio) return;
   if (window.MWAudioPlayer && window.MWAudioPlayer.audio === audio) return;
 
+  if (window.matchMedia && window.matchMedia('(max-width: 767px)').matches) {
+    audio.autoplay = false;
+    audio.removeAttribute('autoplay');
+    audio.pause();
+
+    window.MWAudioPlayer = {
+      audio: audio,
+      save: function () {},
+      getState: function () {
+        return 'paused';
+      },
+    };
+
+    return;
+  }
+
   var saved = {};
   var autoplayBlocked = false;
   var hasSyncedStartTime = false;

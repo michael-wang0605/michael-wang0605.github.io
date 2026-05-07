@@ -38,6 +38,7 @@ async function initFluidWireframeBackground() {
       uTime: { value: 0 },
       uMouse: { value: smoothPointer },
       uIntro: { value: 0 },
+      uNarrow: { value: 0 },
     },
     vertexShader: `
       precision highp float;
@@ -83,15 +84,19 @@ async function initFluidWireframeBackground() {
       varying float vEdgeFade;
       varying vec2 vScreen;
 
+      uniform float uNarrow;
+
       void main() {
         float crest = smoothstep(0.0, 0.34, abs(vHeight));
-        vec2 titleSpace = (vScreen - vec2(0.5, 0.5)) / vec2(0.31, 0.13);
-        float titlePocket = exp(-dot(titleSpace, titleSpace) * 1.24);
+        vec2 titlePocketSize = mix(vec2(0.31, 0.13), vec2(0.66, 0.18), uNarrow);
+        vec2 titleSpace = (vScreen - vec2(0.5, 0.5)) / titlePocketSize;
+        float titlePocket = exp(-dot(titleSpace, titleSpace) * mix(1.24, 1.0, uNarrow));
         vec2 equationSpace = (vScreen - vec2(0.5, 0.24)) / vec2(0.2, 0.044);
         float equationPocket = exp(-dot(equationSpace, equationSpace) * 1.55);
         float alpha = mix(0.12, 0.42, crest) * vEdgeFade;
-        alpha *= 1.0 - titlePocket * 0.64;
+        alpha *= 1.0 - titlePocket * mix(0.64, 1.0, uNarrow);
         alpha *= 1.0 - equationPocket * 0.72;
+        alpha *= mix(1.0, 0.86, uNarrow);
         gl_FragColor = vec4(vec3(1.0), alpha);
       }
     `,
@@ -121,8 +126,9 @@ async function initFluidWireframeBackground() {
     camera.updateProjectionMatrix();
 
     const narrow = width < 768;
-    camera.position.z = narrow ? 9.8 : 8.2;
-    mesh.scale.setScalar(narrow ? 1.14 : 1);
+    material.uniforms.uNarrow.value = narrow ? 1 : 0;
+    camera.position.z = narrow ? 11.8 : 8.2;
+    mesh.scale.setScalar(narrow ? 1.02 : 1);
   }
 
   function animate() {
