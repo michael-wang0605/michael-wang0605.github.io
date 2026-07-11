@@ -139,7 +139,7 @@
     return;
   }
 
-  var TRANSITION_MS = 520;
+  var TRANSITION_MS = 0;
   var SHELL_SCRIPT = /(?:^|\/)site-shell\.js(?:\?|#|$)/;
   var PLAYER_SCRIPT = /(?:^|\/)player\.js(?:\?|#|$)/;
   var navigating = false;
@@ -177,7 +177,7 @@
   function hideTransition() {
     window.setTimeout(function () {
       document.documentElement.classList.remove('is-page-transitioning');
-    }, 120);
+    }, 40);
   }
 
   function wait(ms) {

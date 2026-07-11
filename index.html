@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Michael Wang's personal website." />
     <title>michael wang</title>
-    <script src="site-shell.js"></script>
+    <script src="site-shell.js?v=latency-optimized"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -14,11 +14,18 @@
     />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.45/dist/katex.min.css" />
     <link rel="stylesheet" href="variables.css" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=latency-optimized" />
   </head>
   <body class="is-index">
     <canvas id="fluid-wireframe-canvas" class="fluid-wireframe-canvas" aria-hidden="true"></canvas>
     <canvas id="title-canvas" class="title-canvas" aria-hidden="true"></canvas>
+    <div class="music-gate" id="music-gate" role="dialog" aria-modal="true" aria-label="Enter the site with music">
+      <button class="music-gate-button" id="music-gate-button" type="button">
+        <span>enter</span>
+        <small>with music</small>
+      </button>
+      <button class="music-gate-quiet" id="music-gate-quiet" type="button">continue without music</button>
+    </div>
     <p class="equation-label" aria-label="z equals negative x times e to the negative quantity x squared plus y squared">
       z = -xe<sup>-(x<sup>2</sup> + y<sup>2</sup>)</sup>
     </p>
@@ -57,7 +64,7 @@
         });
       }
     </script>
-    <div class="turntable-fixed">
+    <div class="turntable-fixed" hidden>
       <div class="volume-control">
         <input type="range" id="vol-slider" class="volume-slider" min="0" max="100" value="80" aria-label="Volume" />
       </div>
@@ -106,8 +113,51 @@
         <p class="player-title">gymnopédie no.1</p>
         <p class="player-artist">erik satie</p>
       </div>
-      <audio id="player-audio" src="public/assets/gymnopedie-no1.mp3" preload="auto" autoplay playsinline loop></audio>
+      <audio id="player-audio" src="public/assets/butterflies-piano-sonata.mp3" preload="auto" playsinline loop></audio>
     </div>
     <script src="player.js"></script>
+    <script>
+      (function () {
+        var gate = document.getElementById('music-gate');
+        var button = document.getElementById('music-gate-button');
+        var quietButton = document.getElementById('music-gate-quiet');
+        var audio = document.getElementById('player-audio');
+        var QUIET_KEY = 'mw_audio_quiet_this_visit';
+
+        if (!gate || !button || !quietButton || !audio) return;
+
+        function leaveGate() {
+          if (gate.classList.contains('is-leaving')) return;
+          gate.classList.add('is-leaving');
+          gate.setAttribute('aria-hidden', 'true');
+          window.setTimeout(function () { gate.hidden = true; }, 700);
+        }
+
+        function enterWithMusic() {
+          try { sessionStorage.removeItem(QUIET_KEY); } catch (e) {}
+          var playback = audio.play();
+          button.disabled = true;
+
+          if (playback && playback.then) {
+            playback.then(leaveGate).catch(function () {
+              button.disabled = false;
+            });
+          } else {
+            leaveGate();
+          }
+        }
+
+        function enterQuietly() {
+          try { sessionStorage.setItem(QUIET_KEY, '1'); } catch (e) {}
+          audio.pause();
+          leaveGate();
+        }
+
+        button.addEventListener('click', enterWithMusic);
+        quietButton.addEventListener('click', enterQuietly);
+
+        if (!audio.paused) leaveGate();
+      }());
+    </script>
   </body>
 </html>

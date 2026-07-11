@@ -37,7 +37,7 @@ body::after {
   content: "";
   opacity: 0;
   pointer-events: none;
-  transition: opacity .52s var(--ease-out);
+  transition: opacity .18s var(--ease-out);
 }
 
 html.is-page-transitioning body::after {
@@ -159,6 +159,91 @@ button {
 .title-canvas {
   z-index: 2;
   pointer-events: none;
+}
+
+.music-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 20px;
+  background: #000;
+  opacity: 1;
+  transition: opacity .7s var(--ease-out), visibility .7s var(--ease-out);
+}
+
+.music-gate.is-leaving {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.music-gate-button {
+  display: grid;
+  gap: 9px;
+  min-width: 150px;
+  padding: 17px 20px 16px;
+  border: 1px solid rgba(255, 255, 255, .55);
+  color: #fff;
+  font-family: var(--font-roobert);
+  text-align: center;
+  text-transform: uppercase;
+  transition: color .45s var(--ease-out), background-color .45s var(--ease-out), border-color .45s var(--ease-out);
+}
+
+.music-gate-button span {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: .2em;
+}
+
+.music-gate-button small {
+  color: rgba(255, 255, 255, .56);
+  font-size: 8px;
+  font-weight: 400;
+  letter-spacing: .14em;
+}
+
+.music-gate-button:hover,
+.music-gate-button:focus-visible {
+  border-color: #fff;
+  color: #000;
+  background: #fff;
+  outline: none;
+}
+
+.music-gate-button:hover small,
+.music-gate-button:focus-visible small {
+  color: rgba(0, 0, 0, .6);
+}
+
+.music-gate-button:disabled {
+  cursor: wait;
+  opacity: .55;
+}
+
+.music-gate-quiet {
+  color: rgba(255, 255, 255, .52);
+  font-family: var(--font-roobert);
+  font-size: 8px;
+  font-weight: 400;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  transition: color .35s var(--ease-out);
+}
+
+.music-gate-quiet:hover,
+.music-gate-quiet:focus-visible {
+  color: #fff;
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .music-gate {
+    transition-duration: .01ms;
+  }
 }
 
 .equation-label {
@@ -915,7 +1000,7 @@ button {
   opacity: 0;
   filter: brightness(.72) contrast(1.02);
   pointer-events: none;
-  transition: opacity 1600ms var(--ease-out), filter 1600ms var(--ease-out);
+  transition: opacity 400ms var(--ease-out), filter 400ms var(--ease-out);
 }
 
 .manifesto-aurelia.is-aurelia-ready canvas,

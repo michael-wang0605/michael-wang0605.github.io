@@ -20,7 +20,8 @@ if (titleCanvas) {
 
 if (canvas) {
   titleSettledPromise.then(() => {
-    scheduleInterestArtifact(() => {
+    window.setTimeout(() => {
+      scheduleInterestArtifact(() => {
     const gl = canvas.getContext('webgl', {
       alpha: false,
       antialias: false,
@@ -33,6 +34,11 @@ if (canvas) {
       console.warn('Interest background failed: WebGL is unavailable.');
     } else {
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const compactViewport = window.matchMedia('(max-width: 767px)').matches;
+      const rayMarchIterations = 144;
+      const shadowIterations = 18;
+      const renderPixelRatioCap = compactViewport ? 0.58 : 0.92;
+      const renderFrameInterval = reducedMotion ? 1000 / 15 : compactViewport ? 1000 / 30 : 0;
 
     const vertexShader = `
       attribute vec2 aPosition;
@@ -244,7 +250,7 @@ if (canvas) {
       }
 
       // Raymarching implementation
-      #define MAX_ITERATIONS 144
+      #define MAX_ITERATIONS ${rayMarchIterations}
       #define FAR_CLIP 60.
       #define MIN_DIST (1e-3)
 
@@ -270,7 +276,7 @@ if (canvas) {
       #define AMBIENT_LIGHT 0.01
       #define SURFACE_DIST 0.02
       #define NORMAL_SAMPLE_DIST (1e-3)
-      #define SHADOW_ITERATIONS 18
+      #define SHADOW_ITERATIONS ${shadowIterations}
       #define SHADOW_MIN_DIST (1e-4)
       #define SHADOW_SHARPNESS 2.25
 
@@ -468,9 +474,10 @@ if (canvas) {
     const introLocation = gl.getUniformLocation(program, 'iIntro');
     let hasRevealed = false;
     let firstFrameAt = 0;
+    let lastRenderAt = 0;
 
     function resize() {
-      const pixelRatio = Math.min(window.devicePixelRatio || 1, 0.92);
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, renderPixelRatioCap);
       const width = Math.max(1, Math.floor(window.innerWidth * pixelRatio));
       const height = Math.max(1, Math.floor(window.innerHeight * pixelRatio));
 
@@ -484,6 +491,13 @@ if (canvas) {
 
     function render(now) {
       if (!isCurrentCanvas(canvas)) return;
+
+      if (lastRenderAt && now - lastRenderAt < renderFrameInterval) {
+        window.requestAnimationFrame(render);
+        return;
+      }
+
+      lastRenderAt = now;
 
       if (!firstFrameAt) {
         firstFrameAt = now;
@@ -512,7 +526,8 @@ if (canvas) {
     window.addEventListener('resize', resize);
     window.requestAnimationFrame(render);
   }
-    });
+      });
+    }, 120);
   });
 }
 
@@ -559,7 +574,7 @@ async function initInterestTitle() {
   const settledPromise = new Promise((resolve) => {
     resolveSettled = resolve;
   });
-  const settleDuration = 1050;
+  const settleDuration = 850;
   const activeFrameInterval = 1000 / 42;
   const settledFrameInterval = 1000 / 24;
 

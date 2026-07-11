@@ -37,7 +37,7 @@ async function initManifestoTitle() {
   let startedAt = performance.now();
   let lastDrawAt = 0;
   let hasAnnouncedSettled = false;
-  const settleDuration = 1050;
+  const settleDuration = 850;
   const activeFrameInterval = 1000 / 42;
   const settledFrameInterval = 1000 / 24;
 
