@@ -181,6 +181,7 @@ async function initLifeTitle() {
   const particles = [];
   const timelineTextParticles = [];
   const timelineParticleBuckets = [];
+  const timelineTextBounds = [];
   const timelineItems = Array.from(document.querySelectorAll('.life-event'));
   let width = 1;
   let height = 1;
@@ -386,7 +387,7 @@ async function initLifeTitle() {
         { x: 34, y: 26, dateX: 34, dateY: 18, labelX: 34, labelY: 35 },
         { x: 66, y: 52, dateX: 66, dateY: 44, labelX: 66, labelY: 61 },
         { x: 34, y: 78, dateX: 34, dateY: 70, labelX: 34, labelY: 87 },
-        { x: 66, y: 26, dateX: 66, dateY: 18, labelX: 66, labelY: 35 },
+        { x: 66, y: 36, dateX: 66, dateY: 29, labelX: 66, labelY: 45 },
         { x: 34, y: 52, dateX: 34, dateY: 44, labelX: 34, labelY: 61 },
         { x: 66, y: 78, dateX: 66, dateY: 70, labelX: 66, labelY: 87 },
       ];
@@ -425,9 +426,10 @@ async function initLifeTitle() {
       { x: 48, y: 25, dateX: 48, dateY: 19, labelX: 48, labelY: 33, angle: 0, labelAngle: 0 },
       { x: 85, y: 50, dateX: 85, dateY: 44, labelX: 85, labelY: 58, angle: 0, labelAngle: 0 },
       { x: 15, y: 75, dateX: 15, dateY: 69, labelX: 15, labelY: 83, angle: 0, labelAngle: 0 },
-      { x: 82, y: 25, dateX: 82, dateY: 19, labelX: 82, labelY: 33, angle: 0, labelAngle: 0 },
+      { x: 65, y: 25, dateX: 65, dateY: 19, labelX: 65, labelY: 33, angle: 0, labelAngle: 0 },
       { x: 18, y: 50, dateX: 18, dateY: 44, labelX: 18, labelY: 58, angle: 0, labelAngle: 0 },
       { x: 50, y: 75, dateX: 50, dateY: 69, labelX: 50, labelY: 83, angle: 0, labelAngle: 0 },
+      { x: 65, y: 25, dateX: 65, dateY: 19, labelX: 65, labelY: 33, angle: 0, labelAngle: 0 },
       { x: 78, y: 75, dateX: 78, dateY: 75, labelX: 88, labelY: 75, angle: 0, labelAngle: 0 },
     ];
   }
@@ -594,6 +596,51 @@ async function initLifeTitle() {
     }
   }
 
+  function addTimelineTextBounds(points, eventIndex, kind) {
+    if (!points || points.length === 0) {
+      return;
+    }
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    points.forEach((point) => {
+      minX = Math.min(minX, point.x);
+      minY = Math.min(minY, point.y);
+      maxX = Math.max(maxX, point.x);
+      maxY = Math.max(maxY, point.y);
+    });
+
+    const paddingX = kind === 'date' ? 12 : 16;
+    const paddingY = kind === 'date' ? 8 : 10;
+    timelineTextBounds.push({
+      eventIndex,
+      kind,
+      left: minX - paddingX,
+      top: minY - paddingY,
+      right: maxX + paddingX,
+      bottom: maxY + paddingY,
+    });
+  }
+
+  function addMobileTimelineBounds(item, point, eventIndex) {
+    const itemWidth = item.offsetWidth;
+    const itemHeight = item.offsetHeight;
+    const paddingX = 10;
+    const paddingY = 8;
+
+    timelineTextBounds.push({
+      eventIndex,
+      kind: 'event',
+      left: point.x - itemWidth * 0.5 - paddingX,
+      top: point.y - itemHeight * 0.5 - paddingY,
+      right: point.x + itemWidth * 0.5 + paddingX,
+      bottom: point.y + itemHeight * 0.5 + paddingY,
+    });
+  }
+
   function addDotParticles(point, eventIndex) {
     const count = width < 700 ? 64 : 92;
     const radius = width < 700 ? 4.8 : 6.2;
@@ -649,6 +696,7 @@ async function initLifeTitle() {
 
     timelineTextParticles.length = 0;
     timelineParticleBuckets.length = 0;
+    timelineTextBounds.length = 0;
 
     timelineItems.forEach((item, index) => {
       const isContinuation = isContinuationItem(item);
@@ -671,6 +719,7 @@ async function initLifeTitle() {
       }
 
       if (width < 700) {
+        addMobileTimelineBounds(item, particlePoint, index);
         return;
       }
 
@@ -691,6 +740,8 @@ async function initLifeTitle() {
 
       addTimelineTextParticles(datePoints, index, 'date');
       addTimelineTextParticles(labelPoints, index, isContinuation ? 'continuation' : 'label');
+      addTimelineTextBounds(datePoints, index, 'date');
+      addTimelineTextBounds(labelPoints, index, isContinuation ? 'continuation' : 'label');
     });
   }
 
@@ -767,6 +818,20 @@ async function initLifeTitle() {
           * (textParticle ? 0.08 : 0.2 + progress * 0.35);
         const x = particle.originX + (particle.targetX - particle.originX) * progress;
         const y = particle.originY + (particle.targetY - particle.originY) * progress;
+
+        if (particle.kind === 'line' && timelineTextBounds.some((bounds) => {
+          const boundsProgress = bounds.kind === 'event'
+            ? lastTimelineReveals[bounds.eventIndex] || 0
+            : getTimelinePartProgress(bounds.eventIndex, bounds.kind);
+
+          return boundsProgress > 0.04
+            && x >= bounds.left
+            && x <= bounds.right
+            && y >= bounds.top
+            && y <= bounds.bottom;
+        })) {
+          continue;
+        }
 
         ctx.globalAlpha = particle.targetAlpha * progress;
         ctx.fillStyle = '#fff';
