@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>life | michael wang</title>
-    <script src="site-shell.js"></script>
+    <script src="site-shell.js?v=latency-optimized"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -12,7 +12,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="variables.css" />
-    <link rel="stylesheet" href="styles.css?v=life-title-particles-20" />
+    <link rel="stylesheet" href="styles.css?v=latency-optimized" />
   </head>
   <body class="life-page">
     <canvas id="life-canvas" class="life-canvas" aria-hidden="true"></canvas>
@@ -86,7 +86,7 @@
 
     <script src="script.js"></script>
     <script src="life-background.js?v=life-title-particles-20"></script>
-    <div class="turntable-fixed">
+    <div class="turntable-fixed" hidden>
       <div class="volume-control">
         <input type="range" id="vol-slider" class="volume-slider" min="0" max="100" value="80" aria-label="Volume" />
       </div>
@@ -135,7 +135,7 @@
         <p class="player-title">gymnopédie no.1</p>
         <p class="player-artist">erik satie</p>
       </div>
-      <audio id="player-audio" src="public/assets/gymnopedie-no1.mp3" preload="auto" autoplay playsinline loop></audio>
+      <audio id="player-audio" src="public/assets/butterflies-piano-sonata.mp3" preload="auto" autoplay playsinline loop></audio>
     </div>
     <script src="player.js"></script>
   </body>
