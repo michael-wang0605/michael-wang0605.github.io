@@ -170,6 +170,14 @@
     isCurrent: function (element, token) {
       return element && element.isConnected && token === lifecycle.getActiveToken();
     },
+    resetTitle: function (canvas, token) {
+      if (this.isCurrent(canvas, token)) document.body.classList.remove('is-title-ready');
+    },
+    revealTitle: function (canvas, token) {
+      if (this.isCurrent(canvas, token) && !this.reducedMotion) {
+        document.body.classList.add('is-title-ready');
+      }
+    },
     debounce: function (callback) {
       var timer;
       return function () {

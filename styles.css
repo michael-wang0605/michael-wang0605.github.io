@@ -304,6 +304,10 @@ button {
 }
 
 /* Text is available immediately, even while fonts or canvas initialization wait. */
+body:not(.is-title-ready) :is(.title-canvas, .interest-title-canvas, .contact-title-canvas, .manifesto-title-canvas, .life-text-canvas) {
+  visibility: hidden;
+}
+
 body:not(.is-title-ready) :is(.intro-title, .interest-fallback-title, .contact-fallback-title, .manifesto-fallback-title, .life-fallback-title) {
   position: fixed;
   top: 19vh;
