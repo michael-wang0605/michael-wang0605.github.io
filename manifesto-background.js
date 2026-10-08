@@ -1,4 +1,5 @@
 (() => {
+const profile = window.MWPerformance;
 const titleCanvas = document.getElementById('manifesto-title-canvas');
 const pageLifecycle = window.MWPageLifecycle;
 const pageToken = pageLifecycle && pageLifecycle.getActiveToken ? pageLifecycle.getActiveToken() : 0;
@@ -21,12 +22,13 @@ async function initManifestoTitle() {
   await Promise.race([
     document.fonts.ready,
     new Promise((resolve) => {
-      window.setTimeout(resolve, 1200);
+      window.setTimeout(resolve, 350);
     }),
   ]);
 
   if (!isCurrentCanvas(titleCanvas)) return;
 
+  if (profile.reducedMotion) return;
   const ctx = titleCanvas.getContext('2d');
   const heading = document.querySelector('.manifesto-fallback-title');
   const particles = [];
@@ -35,11 +37,8 @@ async function initManifestoTitle() {
   let pixelRatio = 1;
   let sourcePoints = [];
   let startedAt = performance.now();
-  let lastDrawAt = 0;
   let hasAnnouncedSettled = false;
   const settleDuration = 850;
-  const activeFrameInterval = 1000 / 42;
-  const settledFrameInterval = 1000 / 24;
 
   function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
@@ -60,7 +59,6 @@ async function initManifestoTitle() {
       ? clamp(height * 0.18, 118, 150)
       : clamp(height * 0.18, 138, 178);
     const fontStack = '"Noto Sans JP", "Roobert", Helvetica, Arial, sans-serif';
-    const points = [];
 
     source.width = width;
     source.height = height;
@@ -71,24 +69,8 @@ async function initManifestoTitle() {
     sourceCtx.textBaseline = 'middle';
     sourceCtx.fillText('manifesto', centerX, centerY);
 
-    const imageData = sourceCtx.getImageData(0, 0, width, height);
-    const sampleGap = 2;
-
-    for (let y = 0; y < height; y += sampleGap) {
-      for (let x = 0; x < width; x += sampleGap) {
-        const alpha = imageData.data[(y * width + x) * 4 + 3];
-
-        if (alpha > 34) {
-          points.push({ x, y, alpha: alpha / 255 });
-        }
-      }
-    }
-
-    if (heading) {
-      heading.textContent = 'manifesto';
-    }
-
-    return points;
+    if (heading) heading.textContent = 'manifesto';
+    return profile.sampleText(sourceCtx, width, height, centerX, centerY, 'manifesto', titleSize, 2);
   }
 
   function createParticles() {
@@ -135,6 +117,7 @@ async function initManifestoTitle() {
     ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     sourcePoints = createTitleSource();
     createParticles();
+    profile.frame(draw, pageToken);
   }
 
   function announceSettled() {
@@ -152,18 +135,11 @@ async function initManifestoTitle() {
 
     const elapsed = Math.max(0, time - startedAt);
     const motion = clamp(1 - elapsed / settleDuration, 0, 1);
-    const frameInterval = motion > 0 ? activeFrameInterval : settledFrameInterval;
 
     if (elapsed >= settleDuration) {
       announceSettled();
     }
 
-    if (time - lastDrawAt < frameInterval) {
-      window.requestAnimationFrame(draw);
-      return;
-    }
-
-    lastDrawAt = time;
 
     ctx.clearRect(0, 0, width, height);
 
@@ -199,12 +175,14 @@ async function initManifestoTitle() {
     }
 
     ctx.globalAlpha = 1;
-    window.requestAnimationFrame(draw);
+    if (elapsed > settleDuration) document.body.classList.add('is-title-ready');
+    if (elapsed < settleDuration + 1800) profile.frame(draw, pageToken);
   }
 
   resize();
-  window.addEventListener('resize', resize);
-  window.requestAnimationFrame(draw);
+  profile.refreshFonts(resize, pageToken);
+  window.addEventListener('resize', profile.debounce(resize));
+  profile.frame(draw, pageToken);
   window.setTimeout(announceSettled, settleDuration + 250);
 }
 })();

@@ -1,4 +1,6 @@
 (() => {
+const profile = window.MWPerformance;
+const pageToken = window.MWPageLifecycle.getActiveToken();
 const canvas = document.getElementById('fluid-wireframe-canvas');
 
 if (canvas) {
@@ -8,13 +10,15 @@ if (canvas) {
 }
 
 async function initFluidWireframeBackground() {
+  if (profile.reducedMotion) return;
   const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js');
+  if (!profile.isCurrent(canvas, pageToken)) return;
 
   const renderer = new THREE.WebGLRenderer({
     canvas,
     alpha: false,
-    antialias: true,
-    powerPreference: 'high-performance',
+    antialias: !profile.lowPower,
+    powerPreference: profile.lowPower ? 'low-power' : 'high-performance',
   });
 
   renderer.setClearColor(0x000000, 1);
@@ -23,7 +27,7 @@ async function initFluidWireframeBackground() {
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
   camera.position.set(0, -0.38, 8.2);
 
-  const geometry = new THREE.PlaneGeometry(6.8, 6.8, 168, 168);
+  const geometry = new THREE.PlaneGeometry(6.8, 6.8, profile.lowPower ? 80 : 128, profile.lowPower ? 80 : 128);
   const pointer = new THREE.Vector2(0, 0);
   const smoothPointer = new THREE.Vector2(0, 0);
   const clock = new THREE.Clock();
@@ -118,7 +122,7 @@ async function initFluidWireframeBackground() {
   function resize() {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.7);
+    const pixelRatio = profile.pixelRatio(1.25, 1);
 
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(width, height, false);
@@ -132,17 +136,19 @@ async function initFluidWireframeBackground() {
   }
 
   function animate() {
+    if (!profile.isCurrent(canvas, pageToken)) return;
     const time = clock.getElapsedTime();
     smoothPointer.lerp(pointer, 0.055);
     material.uniforms.uTime.value = time;
     material.uniforms.uIntro.value = THREE.MathUtils.smoothstep(time, 1.15, 3.2);
     renderer.render(scene, camera);
-    window.requestAnimationFrame(animate);
+    profile.frame(animate, pageToken);
   }
 
+  profile.trackRenderer(renderer, [scene], pageToken);
   resize();
-  window.addEventListener('resize', resize);
+  window.addEventListener('resize', profile.debounce(resize));
   window.addEventListener('pointermove', onPointerMove, { passive: true });
-  window.requestAnimationFrame(animate);
+  profile.frame(animate, pageToken);
 }
 })();

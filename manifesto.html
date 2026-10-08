@@ -4,15 +4,16 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>manifesto | michael wang</title>
-    <script src="site-shell.js?v=latency-optimized"></script>
+    <script src="site-shell.js?v=performance-2"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;600;700;800&family=Source+Code+Pro:wght@400;600;700&display=swap"
-      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Source+Code+Pro:wght@400;600&display=swap"
+      rel="stylesheet" media="print" onload="this.media='all'"
     />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&amp;family=Source+Code+Pro:wght@400;600&amp;display=swap" /></noscript>
     <link rel="stylesheet" href="variables.css" />
-    <link rel="stylesheet" href="styles.css?v=latency-optimized" />
+    <link rel="stylesheet" href="styles.css?v=performance-2" />
   </head>
   <body class="manifesto-page">
     <div id="manifesto-aurelia" class="manifesto-aurelia" aria-hidden="true"></div>
@@ -82,7 +83,7 @@
     </main>
 
     <script src="script.js"></script>
-    <script src="manifesto-background.js?v=title-flow-optimized"></script>
+    <script src="manifesto-background.js?v=performance-2"></script>
     <script>
       (function () {
         var container = document.getElementById('manifesto-aurelia');
@@ -94,6 +95,11 @@
         var hasRevealed = false;
 
         if (!container) return;
+        // The simulation is optional; lightweight devices get a CSS backdrop.
+        if (window.MWPerformance.lowPower || window.MWPerformance.reducedMotion || !navigator.gpu) {
+          document.documentElement.classList.add('aurelia-unavailable');
+          return;
+        }
 
         container.classList.remove('is-aurelia-ready');
 
@@ -150,6 +156,7 @@
         });
 
         observer.observe(container, { childList: true });
+        lifecycle.addCleanup(function () { observer.disconnect(); restoreConsole(); }, token);
 
         function loadAurelia() {
           var sourceUrl = new URL('public/assets/aurelia/aurelia-manifesto.js?v=repo-aurelia-6', window.location.href);
@@ -165,7 +172,7 @@
             .then(function (code) {
               if (!isCurrentPage()) return;
 
-              if (window.matchMedia('(max-width: 767px)').matches) {
+              {
                 var pixelRatioSource = 'o.setPixelRatio(window.devicePixelRatio)';
                 var cappedPixelRatio = 'o.setPixelRatio(Math.min(window.devicePixelRatio,1))';
 
@@ -173,6 +180,14 @@
                   code = code.replace(pixelRatioSource, cappedPixelRatio);
                 }
               }
+
+              var entrypoint = 'await t.init(HE),window.addEventListener';
+              var trackedEntrypoint = 'await t.init(HE);if(aureliaToken!==window.MWPageLifecycle.getActiveToken()){o.dispose();return;}window.MWPerformance.trackRenderer(o,[],aureliaToken);window.addEventListener';
+              if (code.indexOf(entrypoint) === -1) throw new Error('Unexpected Aurelia entrypoint.');
+              code = 'const aureliaToken = window.MWPageLifecycle.getActiveToken();const aureliaListen=(...args)=>window.MWPageLifecycle.run(aureliaToken,()=>window.addEventListener(...args));\n' + code.replace(entrypoint, trackedEntrypoint).replace(/window\.addEventListener\(/g, 'aureliaListen(');
+              code = code.replace('const n=s.getDelta(),r=s.getElapsedTime();',
+                'if(aureliaToken!==window.MWPageLifecycle.getActiveToken())return;const n=s.getDelta(),r=s.getElapsedTime();');
+              code = code.replace(/requestAnimationFrame\(i\)/g, 'window.MWPerformance.frame(i,aureliaToken)');
 
               var run = function () {
                 Function(code + '\n//# sourceURL=' + sourceUrl.href)();
@@ -267,7 +282,7 @@
         <p class="player-title">gymnopédie no.1</p>
         <p class="player-artist">erik satie</p>
       </div>
-      <audio id="player-audio" src="public/assets/butterflies-piano-sonata.mp3" preload="auto" autoplay playsinline loop></audio>
+      <audio id="player-audio" src="public/assets/butterflies-piano-sonata.mp3" preload="none" playsinline loop></audio>
     </div>
     <script src="player.js"></script>
   </body>

@@ -24,8 +24,6 @@
     }
   } catch (e) {}
 
-  audio.autoplay = true;
-
   function playAudio() {
     var playback = audio.play();
 
@@ -39,8 +37,9 @@
     }
   }
 
-  playAudio();
-  audio.addEventListener('canplay', playAudio, { once: true });
-  window.addEventListener('pageshow', playAudio);
+  // The player persists across page changes, so its gesture listeners do too.
+  playAudio.__mwPermanent = true;
+  document.addEventListener('pointerdown', playAudio, { once: true, capture: true });
+  document.addEventListener('keydown', playAudio, { once: true, capture: true });
 
 }());

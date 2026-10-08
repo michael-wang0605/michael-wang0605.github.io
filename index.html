@@ -5,16 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Michael Wang's personal website." />
     <title>michael wang</title>
-    <script src="site-shell.js?v=latency-optimized"></script>
+    <script src="site-shell.js?v=performance-2"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;600;700;800&family=Source+Code+Pro:wght@400;700&display=swap"
-      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Source+Code+Pro:wght@400;600&display=swap"
+      rel="stylesheet" media="print" onload="this.media='all'"
     />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.45/dist/katex.min.css" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&amp;family=Source+Code+Pro:wght@400;600&amp;display=swap" /></noscript>
     <link rel="stylesheet" href="variables.css" />
-    <link rel="stylesheet" href="styles.css?v=latency-optimized" />
+    <link rel="stylesheet" href="styles.css?v=performance-2" />
   </head>
   <body class="is-index">
     <canvas id="fluid-wireframe-canvas" class="fluid-wireframe-canvas" aria-hidden="true"></canvas>
@@ -54,16 +54,8 @@
       </section>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.45/dist/katex.min.js"></script>
     <script src="fluid-wireframe-background.js"></script>
     <script src="script.js"></script>
-    <script>
-      if (window.katex) {
-        katex.render(String.raw`z=-x e^{-(x^2+y^2)}`, document.querySelector('.equation-label'), {
-          throwOnError: false,
-        });
-      }
-    </script>
     <div class="turntable-fixed" hidden>
       <div class="volume-control">
         <input type="range" id="vol-slider" class="volume-slider" min="0" max="100" value="80" aria-label="Volume" />
@@ -113,7 +105,7 @@
         <p class="player-title">gymnopédie no.1</p>
         <p class="player-artist">erik satie</p>
       </div>
-      <audio id="player-audio" src="public/assets/butterflies-piano-sonata.mp3" preload="auto" playsinline loop></audio>
+      <audio id="player-audio" src="public/assets/butterflies-piano-sonata.mp3" preload="none" playsinline loop></audio>
     </div>
     <script src="player.js"></script>
     <script>
@@ -137,6 +129,7 @@
           try { sessionStorage.removeItem(QUIET_KEY); } catch (e) {}
           var playback = audio.play();
           button.disabled = true;
+          leaveGate();
 
           if (playback && playback.then) {
             playback.then(leaveGate).catch(function () {
@@ -156,6 +149,7 @@
         button.addEventListener('click', enterWithMusic);
         quietButton.addEventListener('click', enterQuietly);
 
+        try { if (sessionStorage.getItem(QUIET_KEY) === '1') leaveGate(); } catch (e) {}
         if (!audio.paused) leaveGate();
       }());
     </script>

@@ -37,9 +37,11 @@
 
     EventTarget.prototype.addEventListener = function (type, listener, options) {
       var token = tokenForWork();
+      var pageTarget = this === window || this === document || this === document.body;
+      if (pageTarget && token !== activeToken && listener && !listener.__mwPermanent) return;
       nativeAddEventListener.call(this, type, listener, options);
 
-      if (token && !listener.__mwPermanent && (this === window || this === document || this === document.body)) {
+      if (token && listener && !listener.__mwPermanent && (this === window || this === document || this === document.body)) {
         var target = this;
         bucket(token).push(function () {
           nativeRemoveEventListener.call(target, type, listener, options);
@@ -98,6 +100,14 @@
     };
 
     lifecycle = {
+      addCleanup: function (cleanup, token) {
+        token = token || tokenForWork();
+        if (token !== activeToken) {
+          cleanup();
+        } else {
+          bucket(token).push(cleanup);
+        }
+      },
       getActiveToken: function () {
         return activeToken;
       },
@@ -139,12 +149,141 @@
     return;
   }
 
-  var TRANSITION_MS = 0;
+  // Decorative work shares a device budget and stops while the page is hidden.
+  var motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var pointerPreference = window.matchMedia('(pointer: coarse)');
+  var connection = navigator.connection || {};
+  var frameTimes = new WeakMap();
+  var registeredFrames = new WeakSet();
+  var queuedFrames = new WeakSet();
+  var suspendedFrames = new Map();
+  var performanceProfile = {
+    get lowPower() {
+      return window.innerWidth < 768 || pointerPreference.matches ||
+        (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
+        (navigator.deviceMemory && navigator.deviceMemory <= 4) || connection.saveData;
+    },
+    get reducedMotion() { return motionPreference.matches; },
+    pixelRatio: function (desktop, mobile) {
+      return Math.min(window.devicePixelRatio || 1, this.lowPower ? mobile : desktop);
+    },
+    isCurrent: function (element, token) {
+      return element && element.isConnected && token === lifecycle.getActiveToken();
+    },
+    debounce: function (callback) {
+      var timer;
+      return function () {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(callback, 120);
+      };
+    },
+    refreshFonts: function (callback, token) {
+      var refresh = this.debounce(function () {
+        if (token === lifecycle.getActiveToken()) callback();
+      });
+      document.fonts.addEventListener('loadingdone', refresh);
+      lifecycle.addCleanup(function () {
+        document.fonts.removeEventListener('loadingdone', refresh);
+      }, token);
+    },
+    sampleText: function (context, width, height, x, y, text, fontSize, gap) {
+      var halfWidth = context.measureText(text).width / 2 + fontSize * 0.2;
+      var left = Math.max(0, Math.floor(x - halfWidth));
+      var top = Math.max(0, Math.floor(y - fontSize));
+      var sampleWidth = Math.min(width - left, Math.ceil(halfWidth * 2));
+      var sampleHeight = Math.min(height - top, Math.ceil(fontSize * 2));
+      if (sampleWidth <= 0 || sampleHeight <= 0) return [];
+      var pixels = context.getImageData(left, top, sampleWidth, sampleHeight).data;
+      var points = [];
+      for (var row = 0; row < sampleHeight; row += gap) {
+        for (var column = 0; column < sampleWidth; column += gap) {
+          var alpha = pixels[(row * sampleWidth + column) * 4 + 3];
+          if (alpha > 34) points.push({ x: left + column, y: top + row, alpha: alpha / 255 });
+        }
+      }
+      return points;
+    },
+    frame: function (callback, token) {
+      if (token !== lifecycle.getActiveToken()) return;
+      if (queuedFrames.has(callback)) return;
+      queuedFrames.add(callback);
+      if (!registeredFrames.has(callback)) {
+        registeredFrames.add(callback);
+        lifecycle.addCleanup(function () {
+          suspendedFrames.delete(callback);
+          queuedFrames.delete(callback);
+        }, token);
+      }
+      if (document.hidden) {
+        suspendedFrames.set(callback, token);
+        return;
+      }
+      lifecycle.run(token, function () {
+        window.requestAnimationFrame(function tick(time) {
+          if (document.hidden) {
+            suspendedFrames.set(callback, token);
+            return;
+          }
+          var interval = 1000 / (performanceProfile.lowPower ? 30 : 60);
+          var previous = frameTimes.get(callback);
+          if (previous !== undefined && time - previous < interval - 1) {
+            window.requestAnimationFrame(tick);
+            return;
+          }
+          frameTimes.set(callback, time);
+          queuedFrames.delete(callback);
+          callback(time);
+        });
+      });
+    },
+    trackRenderer: function (renderer, scenes, token, extraResources) {
+      lifecycle.addCleanup(function () {
+        (scenes || []).forEach(function (scene) {
+          scene.traverse(function (object) {
+            if (object.geometry) object.geometry.dispose();
+            var materials = Array.isArray(object.material) ? object.material : [object.material];
+            materials.forEach(function (material) { if (material) material.dispose(); });
+          });
+        });
+        (extraResources || []).forEach(function (resource) { if (resource) resource.dispose(); });
+        renderer.dispose();
+        if (renderer.forceContextLoss) renderer.forceContextLoss();
+      }, token);
+    },
+  };
+  window.MWPerformance = performanceProfile;
+  function resumeFrames() {
+    if (document.hidden) return;
+    var pending = Array.from(suspendedFrames);
+    suspendedFrames.clear();
+    pending.forEach(function (entry) {
+      queuedFrames.delete(entry[0]);
+      performanceProfile.frame(entry[0], entry[1]);
+    });
+  }
+  resumeFrames.__mwPermanent = true;
+  document.addEventListener('visibilitychange', resumeFrames);
+
   var SHELL_SCRIPT = /(?:^|\/)site-shell\.js(?:\?|#|$)/;
   var PLAYER_SCRIPT = /(?:^|\/)player\.js(?:\?|#|$)/;
   var navigating = false;
   var currentUrl = new URL(window.location.href);
   var persistentPlayer = null;
+  var resourceCache = new Map();
+
+  function fetchText(url) {
+    if (resourceCache.has(url)) return resourceCache.get(url);
+    var request = fetch(url, { credentials: 'same-origin' }).then(function (response) {
+      if (!response.ok) throw new Error('Could not load ' + url);
+      return response.text();
+    }).catch(function (error) {
+      resourceCache.delete(url);
+      throw error;
+    });
+    resourceCache.set(url, request);
+    if (resourceCache.size > 24) resourceCache.delete(resourceCache.keys().next().value);
+    return request;
+  }
 
   function samePageUrl(url) {
     return url.origin === window.location.origin &&
@@ -170,20 +309,10 @@
     return url.origin === window.location.origin && (extension === 'html' || extension === '');
   }
 
-  function showTransition() {
-    document.documentElement.classList.add('is-page-transitioning');
-  }
-
   function hideTransition() {
     window.setTimeout(function () {
       document.documentElement.classList.remove('is-page-transitioning');
     }, 40);
-  }
-
-  function wait(ms) {
-    return new Promise(function (resolve) {
-      window.setTimeout(resolve, ms);
-    });
   }
 
   function syncHead(nextDocument) {
@@ -275,14 +404,7 @@
         });
       }
 
-      return fetch(absoluteUrl.href)
-        .then(function (response) {
-          if (!response.ok) {
-            throw new Error('Could not load ' + absoluteUrl.href);
-          }
-          return response.text();
-        })
-        .then(function (code) {
+      return fetchText(absoluteUrl.href).then(function (code) {
           lifecycle.run(token, function () {
             Function(code + '\n//# sourceURL=' + absoluteUrl.href)();
           });
@@ -302,6 +424,13 @@
       return !SHELL_SCRIPT.test(src) && !PLAYER_SCRIPT.test(src);
     });
 
+    // Fetch independent scripts together, then preserve their execution order.
+    scripts.forEach(function (script) {
+      var src = script.getAttribute('src');
+      if (src && new URL(src, window.location.href).origin === window.location.origin) {
+        fetchText(new URL(src, window.location.href).href).catch(function () {});
+      }
+    });
     return scripts.reduce(function (chain, script) {
       return chain.then(function () {
         return executeScript(script, token);
@@ -318,23 +447,14 @@
     }
 
     navigating = true;
-    showTransition();
-
-    return Promise.all([
-      fetch(url.href, { credentials: 'same-origin' }).then(function (response) {
-        if (!response.ok) {
-          throw new Error('Could not load ' + url.href);
-        }
-        return response.text();
-      }),
-      wait(TRANSITION_MS),
-    ])
-      .then(function (results) {
-        var nextDocument = new DOMParser().parseFromString(results[0], 'text/html');
+    return fetchText(url.href)
+      .then(function (html) {
+        var nextDocument = new DOMParser().parseFromString(html, 'text/html');
         var token = lifecycle.next();
 
         syncHead(nextDocument);
         rebuildBody(nextDocument);
+        document.documentElement.classList.remove('shader-ready', 'aurelia-unavailable', 'is-page-transitioning');
         currentUrl = new URL(url.href);
 
         if (!options || !options.history) {
@@ -359,7 +479,7 @@
   function onClick(event) {
     var anchor = event.target.closest && event.target.closest('a');
 
-    if (!isInternalPageLink(anchor) || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+    if (event.defaultPrevented || event.button !== 0 || !isInternalPageLink(anchor) || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       return;
     }
 
@@ -371,6 +491,26 @@
 
   onClick.__mwPermanent = true;
   window.addEventListener('click', onClick);
+
+  function prefetchIntent(event) {
+    if (connection.saveData || /(^|-)2g$/.test(connection.effectiveType || '')) return;
+    var anchor = event.target.closest && event.target.closest('a');
+    if (!isInternalPageLink(anchor)) return;
+    var url = new URL(anchor.href);
+    if (samePageUrl(url)) return;
+    fetchText(url.href).then(function (html) {
+      var page = new DOMParser().parseFromString(html, 'text/html');
+      Array.from(page.querySelectorAll('script[src]')).forEach(function (script) {
+        var src = new URL(script.getAttribute('src'), url);
+        if (src.origin === url.origin && !SHELL_SCRIPT.test(src.href) && !PLAYER_SCRIPT.test(src.href)) {
+          fetchText(src.href).catch(function () {});
+        }
+      });
+    }).catch(function () {});
+  }
+  prefetchIntent.__mwPermanent = true;
+  document.addEventListener('pointerover', prefetchIntent, { passive: true });
+  document.addEventListener('focusin', prefetchIntent);
 
   var onPopState = function () {
     navigate(new URL(window.location.href), { history: true });
