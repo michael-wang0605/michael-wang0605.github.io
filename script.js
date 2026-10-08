@@ -1,9 +1,9 @@
 const canvas = document.getElementById('shader-canvas');
 const titleCanvas = document.getElementById('title-canvas');
 
-function initAtlantaTime() {
+function initLocalTime() {
   const timeElements = [
-    document.getElementById('atlanta-time'),
+    document.getElementById('local-time'),
     document.getElementById('manifesto-time'),
   ].filter(Boolean);
 
@@ -29,7 +29,7 @@ function initAtlantaTime() {
   window.setInterval(updateTime, 1000);
 }
 
-initAtlantaTime();
+initLocalTime();
 
 const vertexShader = `
   varying vec3 vUv;

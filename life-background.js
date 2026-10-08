@@ -523,6 +523,10 @@ async function initLifeTitle() {
     const lines = kind === 'date'
       ? [text]
       : wrapTrackedText(sourceCtx, text, textStyle.maxWidth, textStyle.tracking, textStyle.wordSpacing);
+    const textHalfWidth = Math.max(...lines.map((line) => (
+      getTrackedTextWidth(sourceCtx, line, textStyle.tracking, textStyle.wordSpacing)
+    ))) * 0.5;
+    x = clamp(x, textHalfWidth + 16, width - textHalfWidth - 16);
     const startY = y - ((lines.length - 1) * textStyle.lineHeight) * 0.5;
     const sampleGap = 1;
 
