@@ -21,6 +21,7 @@ record player:
 https://codepen.io/robrehrig/pen/AooLxK
 
 Performance notes:
+- Page titles appear only as spawning particles on the canvas. Semantic headings stay visually hidden for accessibility; do not add solid heading placeholders.
 - Text uses local fallback fonts immediately; the shared web fonts load without blocking rendering.
 - Music downloads only after an interaction. Entering the homepage does not wait for playback to buffer.
 - Decorative rendering is capped at 30 fps on narrow screens, touch devices, devices with limited CPU/memory, and connections with Save-Data enabled; other devices are capped at 60 fps. Canvas resolution and scene density are also reduced.

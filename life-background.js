@@ -1000,7 +1000,7 @@ async function initLifeTitle() {
     width = window.innerWidth;
     height = window.innerHeight;
     pixelRatio = Math.min(window.devicePixelRatio || 1, LIFE_TEXT_PIXEL_RATIO_CAP);
-    profile.resetTitle(lifeTextCanvas, pageToken);
+
     lifeTextCanvas.width = Math.floor(width * pixelRatio);
     lifeTextCanvas.height = Math.floor(height * pixelRatio);
     lifeTextCanvas.style.width = `${width}px`;
@@ -1035,7 +1035,6 @@ async function initLifeTitle() {
     const motion = clamp(1 - elapsed / settleDuration, 0, 1);
     const timelineScrim = smoothstep((scrollProgress - 0.82) / 0.46);
 
-    let hasVisibleParticles = false;
     ctx.clearRect(0, 0, width, height);
     if (timelineScrim > 0.01) {
       ctx.globalAlpha = timelineScrim * 0.42;
@@ -1074,7 +1073,7 @@ async function initLifeTitle() {
         const shimmer = Math.sin(time * 0.004 + particle.phase) * particle.jitter * (motion + 0.12);
         ctx.globalAlpha = visibleAlpha;
         ctx.fillStyle = '#fff';
-        hasVisibleParticles = true;
+
         ctx.fillRect(
           particle.x + shimmer,
           particle.y - shimmer * 0.4,
@@ -1088,7 +1087,7 @@ async function initLifeTitle() {
 
 
     ctx.globalAlpha = 1;
-    if (hasVisibleParticles || scrollProgress > 0) profile.revealTitle(lifeTextCanvas, pageToken);
+
     if (elapsed < settleDuration + 1800 || time - lastInteractionAt < 2000 || Math.abs(targetScrollProgress - scrollProgress) > 0.001) {
       profile.frame(draw, pageToken);
     }

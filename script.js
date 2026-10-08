@@ -54,7 +54,7 @@ async function initTitleCanvas() {
   let height = 0;
   let pixelRatio = 1;
   let sources = {};
-  let activeLanguage = 'english';
+  let activeLanguage = 'intro';
   let sequenceTimer = null;
   let transitionStartedAt = performance.now();
   const settleDuration = 1200;
@@ -286,7 +286,7 @@ async function initTitleCanvas() {
     width = window.innerWidth;
     height = window.innerHeight;
     pixelRatio = profile.pixelRatio(1.25, 1);
-    profile.resetTitle(titleCanvas, pageToken);
+
     titleCanvas.width = Math.floor(width * pixelRatio);
     titleCanvas.height = Math.floor(height * pixelRatio);
     titleCanvas.style.width = `${width}px`;
@@ -303,7 +303,6 @@ async function initTitleCanvas() {
     const elapsed = Math.max(0, time - transitionStartedAt);
     const motion = clamp(1 - elapsed / settleDuration, 0, 1);
 
-    let hasVisibleParticles = false;
     ctx.clearRect(0, 0, width, height);
 
     particles.forEach((particle) => {
@@ -327,7 +326,7 @@ async function initTitleCanvas() {
 
       ctx.globalAlpha = visibleAlpha;
       ctx.fillStyle = '#fff';
-      hasVisibleParticles = true;
+
       ctx.fillRect(
         particle.x + shimmer,
         particle.y - shimmer * 0.4,
@@ -337,7 +336,7 @@ async function initTitleCanvas() {
     });
 
     ctx.globalAlpha = 1;
-    if (hasVisibleParticles) profile.revealTitle(titleCanvas, pageToken);
+
     if (elapsed < settleDuration + 1600) profile.frame(draw, pageToken);
   }
 

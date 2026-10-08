@@ -110,7 +110,7 @@ async function initManifestoTitle() {
     width = window.innerWidth;
     height = window.innerHeight;
     pixelRatio = Math.min(window.devicePixelRatio || 1, TITLE_PIXEL_RATIO_CAP);
-    profile.resetTitle(titleCanvas, pageToken);
+
     titleCanvas.width = Math.floor(width * pixelRatio);
     titleCanvas.height = Math.floor(height * pixelRatio);
     titleCanvas.style.width = `${width}px`;
@@ -141,8 +141,6 @@ async function initManifestoTitle() {
       announceSettled();
     }
 
-
-    let hasVisibleParticles = false;
     ctx.clearRect(0, 0, width, height);
 
     for (let index = 0; index < particles.length; index += 1) {
@@ -168,7 +166,7 @@ async function initManifestoTitle() {
       const shimmer = Math.sin(time * 0.004 + particle.phase) * particle.jitter * (motion + 0.1);
       ctx.globalAlpha = visibleAlpha;
       ctx.fillStyle = '#fff';
-      hasVisibleParticles = true;
+
       ctx.fillRect(
         particle.x + shimmer,
         particle.y - shimmer * 0.4,
@@ -178,7 +176,7 @@ async function initManifestoTitle() {
     }
 
     ctx.globalAlpha = 1;
-    if (hasVisibleParticles) profile.revealTitle(titleCanvas, pageToken);
+
 
     if (elapsed < settleDuration + 1800) profile.frame(draw, pageToken);
   }
