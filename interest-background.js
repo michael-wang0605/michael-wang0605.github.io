@@ -1,5 +1,3 @@
-(() => {
-const profile = window.MWPerformance;
 const canvas = document.getElementById('interest-shader-canvas');
 const titleCanvas = document.getElementById('interest-title-canvas');
 const TITLE_SETTLED_EVENT = 'mw:interest-title-settled';
@@ -20,7 +18,7 @@ if (titleCanvas) {
   });
 }
 
-if (canvas && !profile.reducedMotion) {
+if (canvas) {
   titleSettledPromise.then(() => {
     window.setTimeout(() => {
       scheduleInterestArtifact(() => {
@@ -29,16 +27,18 @@ if (canvas && !profile.reducedMotion) {
       antialias: false,
       depth: false,
       stencil: false,
-      powerPreference: profile.lowPower ? 'low-power' : 'high-performance',
+      powerPreference: 'high-performance',
     });
 
     if (!gl) {
       console.warn('Interest background failed: WebGL is unavailable.');
     } else {
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const compactViewport = window.matchMedia('(max-width: 767px)').matches;
       const rayMarchIterations = 144;
-      const shadowIterations = profile.lowPower ? 8 : 12;
-      const renderPixelRatioCap = profile.lowPower ? 0.5 : 0.75;
+      const shadowIterations = 18;
+      const renderPixelRatioCap = compactViewport ? 0.58 : 0.92;
+      const renderFrameInterval = reducedMotion ? 1000 / 15 : compactViewport ? 1000 / 30 : 0;
 
     const vertexShader = `
       attribute vec2 aPosition;
@@ -54,7 +54,6 @@ if (canvas && !profile.reducedMotion) {
       uniform vec3 iResolution;
       uniform float iTime;
       uniform float iIntro;
-      uniform float iCompact;
 
       // Based on this tutorial: https://www.youtube.com/watch?v=PGtv-dBi2wE
       // Soft shadow implementation based on: https://iquilezles.org/articles/rmshadows
@@ -356,7 +355,7 @@ if (canvas && !profile.reducedMotion) {
       void mainImage( out vec4 fragColor, in vec2 fragCoord )
       {
           // Translate viewport. Mobile moves the artifact out of the text column.
-          float mobile = iCompact;
+          float mobile = step(iResolution.x, 760.0);
           vec2 center = mix(vec2(0.296, 0.29), vec2(0.735, 0.54), mobile);
           vec2 uv = (fragCoord/iResolution.xy - center) * vec2(1., iResolution.y / iResolution.x);
           vec2 uvx1 = ((fragCoord-vec2(2., 0.))/iResolution.xy - center) * vec2(1., iResolution.y / iResolution.x);
@@ -473,9 +472,9 @@ if (canvas && !profile.reducedMotion) {
     const resolutionLocation = gl.getUniformLocation(program, 'iResolution');
     const timeLocation = gl.getUniformLocation(program, 'iTime');
     const introLocation = gl.getUniformLocation(program, 'iIntro');
-    const compactLocation = gl.getUniformLocation(program, 'iCompact');
     let hasRevealed = false;
     let firstFrameAt = 0;
+    let lastRenderAt = 0;
 
     function resize() {
       const pixelRatio = Math.min(window.devicePixelRatio || 1, renderPixelRatioCap);
@@ -493,17 +492,24 @@ if (canvas && !profile.reducedMotion) {
     function render(now) {
       if (!isCurrentCanvas(canvas)) return;
 
+      if (lastRenderAt && now - lastRenderAt < renderFrameInterval) {
+        window.requestAnimationFrame(render);
+        return;
+      }
+
+      lastRenderAt = now;
 
       if (!firstFrameAt) {
         firstFrameAt = now;
       }
+
+      resize();
 
       gl.useProgram(program);
       gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
       gl.enableVertexAttribArray(positionLocation);
       gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
       gl.uniform3f(resolutionLocation, canvas.width, canvas.height, 1);
-      gl.uniform1f(compactLocation, window.innerWidth < 768 ? 1 : 0);
       gl.uniform1f(timeLocation, (now * 0.001) * (reducedMotion ? 0.12 : 0.72));
       gl.uniform1f(introLocation, Math.min(1, Math.max(0, (now - firstFrameAt) / 900)));
       gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -513,18 +519,12 @@ if (canvas && !profile.reducedMotion) {
         document.body.classList.add('is-gpu-ready');
       }
 
-      profile.frame(render, pageToken);
+      window.requestAnimationFrame(render);
     }
 
-    window.MWPageLifecycle.addCleanup(() => {
-      gl.deleteBuffer(positionBuffer);
-      gl.deleteProgram(program);
-      const extension = gl.getExtension('WEBGL_lose_context');
-      if (extension) extension.loseContext();
-    }, pageToken);
     resize();
-    window.addEventListener('resize', profile.debounce(resize));
-    profile.frame(render, pageToken);
+    window.addEventListener('resize', resize);
+    window.requestAnimationFrame(render);
   }
       });
     }, 120);
@@ -554,14 +554,13 @@ async function initInterestTitle() {
   await Promise.race([
     document.fonts.ready,
     new Promise((resolve) => {
-      window.setTimeout(resolve, 350);
+      window.setTimeout(resolve, 1200);
     }),
   ]);
 
   if (!isCurrentCanvas(titleCanvas)) return;
 
   const TITLE_PIXEL_RATIO_CAP = 1;
-  if (profile.reducedMotion) return;
   const ctx = titleCanvas.getContext('2d');
   const particles = [];
   let width = 1;
@@ -569,12 +568,15 @@ async function initInterestTitle() {
   let pixelRatio = 1;
   let sourcePoints = [];
   let startedAt = performance.now();
+  let lastDrawAt = 0;
   let hasAnnouncedSettled = false;
   let resolveSettled;
   const settledPromise = new Promise((resolve) => {
     resolveSettled = resolve;
   });
   const settleDuration = 850;
+  const activeFrameInterval = 1000 / 42;
+  const settledFrameInterval = 1000 / 24;
 
   function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
@@ -594,6 +596,7 @@ async function initInterestTitle() {
       ? clamp(height * 0.2, 138, 178)
       : clamp(height * 0.19, 150, 190);
     const fontStack = '"Noto Sans JP", "Roobert", Helvetica, Arial, sans-serif';
+    const points = [];
 
     source.width = width;
     source.height = height;
@@ -604,7 +607,20 @@ async function initInterestTitle() {
     sourceCtx.textBaseline = 'middle';
     sourceCtx.fillText('interests', width * 0.5, centerY);
 
-    return profile.sampleText(sourceCtx, width, height, width * 0.5, centerY, 'interests', titleSize, 2);
+    const imageData = sourceCtx.getImageData(0, 0, width, height);
+    const sampleGap = 2;
+
+    for (let y = 0; y < height; y += sampleGap) {
+      for (let x = 0; x < width; x += sampleGap) {
+        const alpha = imageData.data[(y * width + x) * 4 + 3];
+
+        if (alpha > 34) {
+          points.push({ x, y, alpha: alpha / 255 });
+        }
+      }
+    }
+
+    return points;
   }
 
   function createParticles() {
@@ -646,7 +662,6 @@ async function initInterestTitle() {
     width = window.innerWidth;
     height = window.innerHeight;
     pixelRatio = Math.min(window.devicePixelRatio || 1, TITLE_PIXEL_RATIO_CAP);
-
     titleCanvas.width = Math.floor(width * pixelRatio);
     titleCanvas.height = Math.floor(height * pixelRatio);
     titleCanvas.style.width = `${width}px`;
@@ -654,7 +669,6 @@ async function initInterestTitle() {
     ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     sourcePoints = createTitleSource();
     createParticles();
-    profile.frame(draw, pageToken);
   }
 
   function announceSettled() {
@@ -674,10 +688,18 @@ async function initInterestTitle() {
 
     const elapsed = Math.max(0, time - startedAt);
     const motion = clamp(1 - elapsed / settleDuration, 0, 1);
+    const frameInterval = motion > 0 ? activeFrameInterval : settledFrameInterval;
 
     if (elapsed >= settleDuration) {
       announceSettled();
     }
+
+    if (time - lastDrawAt < frameInterval) {
+      window.requestAnimationFrame(draw);
+      return;
+    }
+
+    lastDrawAt = time;
 
     ctx.clearRect(0, 0, width, height);
 
@@ -704,7 +726,6 @@ async function initInterestTitle() {
       const shimmer = Math.sin(time * 0.004 + particle.phase) * particle.jitter * (motion + 0.1);
       ctx.globalAlpha = visibleAlpha;
       ctx.fillStyle = '#fff';
-
       ctx.fillRect(
         particle.x + shimmer,
         particle.y - shimmer * 0.4,
@@ -714,18 +735,13 @@ async function initInterestTitle() {
     }
 
     ctx.globalAlpha = 1;
-
-
-    if (elapsed < settleDuration + 1800) profile.frame(draw, pageToken);
+    window.requestAnimationFrame(draw);
   }
 
   resize();
-  profile.refreshFonts(resize, pageToken);
-  window.addEventListener('resize', profile.debounce(resize));
-  profile.frame(draw, pageToken);
+  window.addEventListener('resize', resize);
+  window.requestAnimationFrame(draw);
   window.setTimeout(announceSettled, settleDuration + 250);
 
   return settledPromise;
 }
-
-})();

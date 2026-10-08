@@ -1,11 +1,10 @@
 (() => {
-const profile = window.MWPerformance;
-const pageToken = window.MWPageLifecycle.getActiveToken();
 const canvas = document.getElementById('contact-field-canvas');
 const titleCanvas = document.getElementById('contact-title-canvas');
-const TITLE_PIXEL_RATIO_CAP = 1;
-const DESKTOP_BLADE_COUNT = 4000;
-const MOBILE_BLADE_COUNT = 1600;
+const FIELD_PIXEL_RATIO_CAP = 1.65;
+const TITLE_PIXEL_RATIO_CAP = 1.35;
+const DESKTOP_BLADE_COUNT = 5600;
+const MOBILE_BLADE_COUNT = 2600;
 
 if (canvas) {
   initContactField().catch((error) => {
@@ -23,12 +22,10 @@ async function initContactTitle() {
   await Promise.race([
     document.fonts.ready,
     new Promise((resolve) => {
-      window.setTimeout(resolve, 350);
+      window.setTimeout(resolve, 1200);
     }),
   ]);
 
-  if (!profile.isCurrent(titleCanvas, pageToken)) return;
-  if (profile.reducedMotion) return;
   const ctx = titleCanvas.getContext('2d');
   const particles = [];
   let width = 1;
@@ -56,6 +53,7 @@ async function initContactTitle() {
       ? clamp(height * 0.205, 144, 182)
       : clamp(height * 0.19, 150, 190);
     const fontStack = '"Noto Sans JP", "Roobert", Helvetica, Arial, sans-serif';
+    const points = [];
 
     source.width = width;
     source.height = height;
@@ -66,14 +64,27 @@ async function initContactTitle() {
     sourceCtx.textBaseline = 'middle';
     sourceCtx.fillText('contact', width * 0.5, centerY);
 
-    return profile.sampleText(sourceCtx, width, height, width * 0.5, centerY, 'contact', titleSize, 2);
+    const imageData = sourceCtx.getImageData(0, 0, width, height);
+    const sampleGap = 1;
+
+    for (let y = 0; y < height; y += sampleGap) {
+      for (let x = 0; x < width; x += sampleGap) {
+        const alpha = imageData.data[(y * width + x) * 4 + 3];
+
+        if (alpha > 34) {
+          points.push({ x, y, alpha: alpha / 255 });
+        }
+      }
+    }
+
+    return points;
   }
 
   function createParticles() {
     const count = Math.round(clamp(
       sourcePoints.length * (width < 768 ? 0.58 : 0.72),
-      width < 768 ? 1100 : 1800,
-      width < 768 ? 2400 : 4200,
+      width < 768 ? 1700 : 3200,
+      width < 768 ? 3900 : 7600,
     ));
 
     particles.length = 0;
@@ -104,7 +115,6 @@ async function initContactTitle() {
     width = window.innerWidth;
     height = window.innerHeight;
     pixelRatio = Math.min(window.devicePixelRatio || 1, TITLE_PIXEL_RATIO_CAP);
-
     titleCanvas.width = Math.floor(width * pixelRatio);
     titleCanvas.height = Math.floor(height * pixelRatio);
     titleCanvas.style.width = `${width}px`;
@@ -112,11 +122,9 @@ async function initContactTitle() {
     ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     sourcePoints = createTitleSource();
     createParticles();
-    profile.frame(draw, pageToken);
   }
 
   function draw(time) {
-    if (!profile.isCurrent(titleCanvas, pageToken)) return;
     const elapsed = Math.max(0, time - startedAt);
     const motion = clamp(1 - elapsed / settleDuration, 0, 1);
 
@@ -145,7 +153,6 @@ async function initContactTitle() {
       const shimmer = Math.sin(time * 0.004 + particle.phase) * particle.jitter * (motion + 0.1);
       ctx.globalAlpha = visibleAlpha;
       ctx.fillStyle = '#fff';
-
       ctx.fillRect(
         particle.x + shimmer,
         particle.y - shimmer * 0.4,
@@ -155,26 +162,21 @@ async function initContactTitle() {
     }
 
     ctx.globalAlpha = 1;
-
-
-    if (elapsed < settleDuration + 1800) profile.frame(draw, pageToken);
+    window.requestAnimationFrame(draw);
   }
 
   resize();
-  profile.refreshFonts(resize, pageToken);
-  window.addEventListener('resize', profile.debounce(resize));
-  profile.frame(draw, pageToken);
+  window.addEventListener('resize', resize);
+  window.requestAnimationFrame(draw);
 }
 
 async function initContactField() {
-  if (profile.reducedMotion) return;
   const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js');
-  if (!profile.isCurrent(canvas, pageToken)) return;
   const renderer = new THREE.WebGLRenderer({
     canvas,
     alpha: false,
-    antialias: !profile.lowPower,
-    powerPreference: profile.lowPower ? 'low-power' : 'high-performance',
+    antialias: true,
+    powerPreference: 'high-performance',
   });
   const scene = new THREE.Scene();
   const postScene = new THREE.Scene();
@@ -427,7 +429,7 @@ async function initContactField() {
   function resize() {
     width = window.innerWidth;
     height = window.innerHeight;
-    const pixelRatio = profile.pixelRatio(1.2, 0.8);
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, FIELD_PIXEL_RATIO_CAP);
     const targetWidth = Math.max(1, Math.floor(width * pixelRatio));
     const targetHeight = Math.max(1, Math.floor(height * pixelRatio));
 
@@ -449,10 +451,7 @@ async function initContactField() {
       dofMaterial.uniforms.uScene.value = fieldTarget.texture;
     }
 
-    if (!grass || grass.userData.narrow !== (width < 768)) {
-      createGrassField();
-      grass.userData.narrow = width < 768;
-    }
+    createGrassField();
   }
 
   function onPointerMove(event) {
@@ -463,7 +462,6 @@ async function initContactField() {
   }
 
   function animate() {
-    if (!profile.isCurrent(canvas, pageToken)) return;
     const elapsed = clock.getElapsedTime();
 
     smoothPointer.lerp(targetPointer, 0.06);
@@ -481,14 +479,13 @@ async function initContactField() {
     } else {
       renderer.render(scene, camera);
     }
-    profile.frame(animate, pageToken);
+    window.requestAnimationFrame(animate);
   }
 
   setupDepthOfFieldPass();
   resize();
-  profile.trackRenderer(renderer, [scene, postScene], pageToken, [fieldTarget]);
-  window.addEventListener('resize', profile.debounce(resize));
+  window.addEventListener('resize', resize);
   window.addEventListener('pointermove', onPointerMove, { passive: true });
-  profile.frame(animate, pageToken);
+  window.requestAnimationFrame(animate);
 }
 })();

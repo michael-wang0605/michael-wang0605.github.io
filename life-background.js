@@ -1,9 +1,7 @@
-(() => {
-const profile = window.MWPerformance;
-const pageToken = window.MWPageLifecycle.getActiveToken();
-const lifeCanvas = document.getElementById('life-canvas');
+﻿const lifeCanvas = document.getElementById('life-canvas');
 const lifeTextCanvas = document.getElementById('life-text-canvas');
-const LIFE_TEXT_PIXEL_RATIO_CAP = 1;
+const LIFE_WEBGL_PIXEL_RATIO_CAP = 1.35;
+const LIFE_TEXT_PIXEL_RATIO_CAP = 1.3;
 
 if (lifeCanvas) {
   initLifeBackground().catch((error) => {
@@ -18,15 +16,13 @@ if (lifeTextCanvas) {
 }
 
 async function initLifeBackground() {
-  if (profile.reducedMotion) return;
   const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js');
-  if (!profile.isCurrent(lifeCanvas, pageToken)) return;
 
   const renderer = new THREE.WebGLRenderer({
     canvas: lifeCanvas,
     alpha: false,
-    antialias: !profile.lowPower,
-    powerPreference: profile.lowPower ? 'low-power' : 'high-performance',
+    antialias: true,
+    powerPreference: 'high-performance',
   });
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -126,7 +122,6 @@ async function initLifeBackground() {
   });
 
   scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), starNestMaterial));
-  profile.trackRenderer(renderer, [scene], pageToken);
 
   const targetMouse = new THREE.Vector2(0.5, 0.5);
   const smoothMouse = new THREE.Vector2(0.5, 0.5);
@@ -151,7 +146,7 @@ async function initLifeBackground() {
   function resize() {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const pixelRatio = profile.pixelRatio(0.85, 0.55);
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, LIFE_WEBGL_PIXEL_RATIO_CAP);
 
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(width, height, false);
@@ -161,30 +156,27 @@ async function initLifeBackground() {
   }
 
   function animate() {
-    if (!profile.isCurrent(lifeCanvas, pageToken)) return;
     starNestMaterial.uniforms.iTime.value = clock.getElapsedTime();
     smoothMouse.lerp(targetMouse, 0.01);
     syncMouseUniform();
     renderer.render(scene, camera);
-    profile.frame(animate, pageToken);
+    window.requestAnimationFrame(animate);
   }
 
   resize();
-  window.addEventListener('resize', profile.debounce(resize));
+  window.addEventListener('resize', resize);
   window.addEventListener('pointermove', onPointerMove, { passive: true });
-  profile.frame(animate, pageToken);
+  window.requestAnimationFrame(animate);
 }
 
 async function initLifeTitle() {
   await Promise.race([
     document.fonts.ready,
     new Promise((resolve) => {
-      window.setTimeout(resolve, 350);
+      window.setTimeout(resolve, 1200);
     }),
   ]);
 
-  if (!profile.isCurrent(lifeTextCanvas, pageToken)) return;
-  if (profile.reducedMotion) return;
   const ctx = lifeTextCanvas.getContext('2d');
   const particles = [];
   const timelineTextParticles = [];
@@ -198,7 +190,6 @@ async function initLifeTitle() {
   let startedAt = performance.now();
   let scrollProgress = 0;
   let targetScrollProgress = 0;
-  let lastInteractionAt = performance.now();
   let depopulationProgress = 0;
   let timelinePathPoints = [];
   let touchStartY = null;
@@ -314,8 +305,6 @@ async function initLifeTitle() {
       return;
     }
 
-    lastInteractionAt = performance.now();
-    profile.frame(draw, pageToken);
     targetScrollProgress = clamp(
       targetScrollProgress + distance / (width < 700
         ? Math.max(height * 0.58, 390)
@@ -369,8 +358,6 @@ async function initLifeTitle() {
     if (event.key === ' ') {
       distance = height * (event.shiftKey ? -0.8 : 0.8);
     } else if (event.key === 'Home') {
-      lastInteractionAt = performance.now();
-      profile.frame(draw, pageToken);
       targetScrollProgress = 0;
       scrollProgress = 0;
       depopulationProgress = 0;
@@ -378,8 +365,6 @@ async function initLifeTitle() {
       event.preventDefault();
       return;
     } else if (event.key === 'End') {
-      lastInteractionAt = performance.now();
-      profile.frame(draw, pageToken);
       targetScrollProgress = getMaxScrollProgress();
       scrollProgress = targetScrollProgress;
       depopulationProgress = 1;
@@ -538,12 +523,8 @@ async function initLifeTitle() {
     const lines = kind === 'date'
       ? [text]
       : wrapTrackedText(sourceCtx, text, textStyle.maxWidth, textStyle.tracking, textStyle.wordSpacing);
-    const textHalfWidth = Math.max(...lines.map((line) => (
-      getTrackedTextWidth(sourceCtx, line, textStyle.tracking, textStyle.wordSpacing)
-    ))) * 0.5;
-    x = clamp(x, textHalfWidth + 16, width - textHalfWidth - 16);
     const startY = y - ((lines.length - 1) * textStyle.lineHeight) * 0.5;
-    const sampleGap = 2;
+    const sampleGap = 1;
 
     lines.forEach((line, index) => {
       fillTrackedText(
@@ -556,15 +537,15 @@ async function initLifeTitle() {
       );
     });
 
-    const left = Math.max(0, Math.floor(x - textHalfWidth - 4));
-    const top = Math.max(0, Math.floor(startY - textStyle.lineHeight));
-    const sampleWidth = Math.min(width - left, Math.ceil(textHalfWidth * 2 + 8));
-    const sampleHeight = Math.min(height - top, Math.ceil((lines.length + 1) * textStyle.lineHeight));
-    const imageData = sourceCtx.getImageData(left, top, sampleWidth, sampleHeight);
-    for (let pointY = 0; pointY < sampleHeight; pointY += sampleGap) {
-      for (let pointX = 0; pointX < sampleWidth; pointX += sampleGap) {
-        const alpha = imageData.data[(pointY * sampleWidth + pointX) * 4 + 3];
-        if (alpha > 30) points.push({ x: left + pointX, y: top + pointY, alpha: alpha / 255 });
+    const imageData = sourceCtx.getImageData(0, 0, width, height);
+
+    for (let pointY = 0; pointY < height; pointY += sampleGap) {
+      for (let pointX = 0; pointX < width; pointX += sampleGap) {
+        const alpha = imageData.data[(pointY * width + pointX) * 4 + 3];
+
+        if (alpha > 30) {
+          points.push({ x: pointX, y: pointY, alpha: alpha / 255 });
+        }
       }
     }
 
@@ -589,7 +570,7 @@ async function initLifeTitle() {
     const count = Math.round(clamp(
       points.length * (kind === 'date' ? 0.6 : 0.55),
       kind === 'date' ? 320 : 480,
-      kind === 'date' ? 1600 : 3200,
+      kind === 'date' ? 2600 : 6800,
     ));
 
     for (let index = 0; index < count; index += 1) {
@@ -937,7 +918,7 @@ async function initLifeTitle() {
     }
 
     const imageData = sourceCtx.getImageData(0, 0, width, height);
-    const sampleGap = 2;
+    const sampleGap = 1;
     const subtitleStartY = centerY + titleSize * 0.34;
     const points = [];
 
@@ -959,8 +940,8 @@ async function initLifeTitle() {
   function createParticles() {
     const count = Math.round(clamp(
       sourcePoints.length * (width < 700 ? 0.68 : 0.82),
-      width < 700 ? 900 : 1500,
-      width < 700 ? 2400 : 4000,
+      width < 700 ? 1900 : 3000,
+      width < 700 ? 4300 : 7600,
     ));
 
     particles.length = 0;
@@ -1000,7 +981,6 @@ async function initLifeTitle() {
     width = window.innerWidth;
     height = window.innerHeight;
     pixelRatio = Math.min(window.devicePixelRatio || 1, LIFE_TEXT_PIXEL_RATIO_CAP);
-
     lifeTextCanvas.width = Math.floor(width * pixelRatio);
     lifeTextCanvas.height = Math.floor(height * pixelRatio);
     lifeTextCanvas.style.width = `${width}px`;
@@ -1012,7 +992,6 @@ async function initLifeTitle() {
     buildTimelineTextParticles();
     lastTimelineReveals.length = 0;
     updateTimeline();
-    profile.frame(draw, pageToken);
   }
 
   function updateSmoothScroll() {
@@ -1028,7 +1007,6 @@ async function initLifeTitle() {
   }
 
   function draw(time) {
-    if (!profile.isCurrent(lifeTextCanvas, pageToken)) return;
     updateSmoothScroll();
 
     const elapsed = Math.max(0, time - startedAt);
@@ -1073,7 +1051,6 @@ async function initLifeTitle() {
         const shimmer = Math.sin(time * 0.004 + particle.phase) * particle.jitter * (motion + 0.12);
         ctx.globalAlpha = visibleAlpha;
         ctx.fillStyle = '#fff';
-
         ctx.fillRect(
           particle.x + shimmer,
           particle.y - shimmer * 0.4,
@@ -1085,17 +1062,12 @@ async function initLifeTitle() {
 
     drawTimelineText(time);
 
-
     ctx.globalAlpha = 1;
-
-    if (elapsed < settleDuration + 1800 || time - lastInteractionAt < 2000 || Math.abs(targetScrollProgress - scrollProgress) > 0.001) {
-      profile.frame(draw, pageToken);
-    }
+    window.requestAnimationFrame(draw);
   }
 
   resize();
-  window.addEventListener('resize', profile.debounce(resize));
-  profile.refreshFonts(resize, pageToken);
+  window.addEventListener('resize', resize);
   window.addEventListener('wheel', handleWheel, { passive: false });
   window.addEventListener('touchstart', handleTouchStart, { passive: true });
   window.addEventListener('touchmove', handleTouchMove, { passive: false });
@@ -1103,7 +1075,5 @@ async function initLifeTitle() {
   window.addEventListener('keydown', handleKeyDown);
   syncScrollCue();
   updateTimeline();
-  profile.frame(draw, pageToken);
+  window.requestAnimationFrame(draw);
 }
-
-})();

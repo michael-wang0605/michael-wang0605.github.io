@@ -1,3 +1,4 @@
+@import url("variables.css");
 
 :root {
   --font-roobert: "Noto Sans JP", "Roobert", Helvetica, Arial, sans-serif;
@@ -301,24 +302,6 @@ button {
   clip: rect(0, 0, 0, 0);
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-.aurelia-unavailable .manifesto-aurelia {
-  background: radial-gradient(ellipse at 78% 30%, rgba(115, 153, 167, .16), transparent 40%),
-    radial-gradient(ellipse at 65% 70%, rgba(75, 105, 128, .14), transparent 38%), #000;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after { animation: none !important; transition: none !important; }
-  :is(.title-canvas, .interest-title-canvas, .contact-title-canvas, .manifesto-title-canvas, .life-text-canvas) { display: none; }
-  .intro-foot { transform: none; }
-  html:has(.life-page), body.life-page { overflow: auto; }
-  .life-page .life-main { padding: 100px var(--gutter) 40px; }
-  .life-page .life-stage { min-height: 260px; }
-  .life-page .life-events { position: relative; inset: auto; height: auto; padding: 0; }
-  .life-page .life-event { position: relative; inset: auto; width: auto; margin: 24px 0; opacity: 1; transform: none; }
-  .life-page .life-event :is(time, span) { opacity: 1; }
-  .life-page .life-scroll-cue { display: none; }
 }
 
 .intro-foot {
