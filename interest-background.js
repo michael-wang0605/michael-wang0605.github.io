@@ -1,3 +1,4 @@
+(() => {
 const canvas = document.getElementById('interest-shader-canvas');
 const titleCanvas = document.getElementById('interest-title-canvas');
 const TITLE_SETTLED_EVENT = 'mw:interest-title-settled';
@@ -11,7 +12,6 @@ function isCurrentCanvas(element) {
 }
 
 let titleSettledPromise = Promise.resolve();
-
 if (titleCanvas) {
   titleSettledPromise = initInterestTitle().catch((error) => {
     console.warn('Interest title animation failed.', error);
@@ -19,9 +19,8 @@ if (titleCanvas) {
 }
 
 if (canvas) {
-  titleSettledPromise.then(() => {
-    window.setTimeout(() => {
-      scheduleInterestArtifact(() => {
+  window.requestAnimationFrame(() => {
+    scheduleInterestArtifact(async () => {
     const gl = canvas.getContext('webgl', {
       alpha: false,
       antialias: false,
@@ -33,6 +32,11 @@ if (canvas) {
     if (!gl) {
       console.warn('Interest background failed: WebGL is unavailable.');
     } else {
+      const parallelCompile = gl.getExtension('KHR_parallel_shader_compile');
+      if (!parallelCompile) {
+        await titleSettledPromise;
+        if (!isCurrentCanvas(canvas)) return;
+      }
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const compactViewport = window.matchMedia('(max-width: 767px)').matches;
       const rayMarchIterations = 144;
@@ -418,12 +422,6 @@ if (canvas) {
       gl.shaderSource(shader, source);
       gl.compileShader(shader);
 
-      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        const error = gl.getShaderInfoLog(shader);
-        gl.deleteShader(shader);
-        throw new Error(error || 'Unknown shader compile error.');
-      }
-
       return shader;
     }
 
@@ -438,25 +436,44 @@ if (canvas) {
       gl.deleteShader(vert);
       gl.deleteShader(frag);
 
-      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        const error = gl.getProgramInfoLog(program);
-        gl.deleteProgram(program);
-        throw new Error(error || 'Unknown shader link error.');
-      }
-
       return program;
     }
 
     let program;
+    let positionBuffer;
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      if (positionBuffer) gl.deleteBuffer(positionBuffer);
+      if (program) gl.deleteProgram(program);
+      const loseContext = gl.getExtension('WEBGL_lose_context');
+      if (loseContext) loseContext.loseContext();
+    };
+    pageLifecycle.addCleanup(release, pageToken);
 
     try {
       program = createProgram();
+      // Reading compile/link status immediately forces a synchronous stall.
+      if (parallelCompile) {
+        while (!gl.getProgramParameter(program, parallelCompile.COMPLETION_STATUS_KHR)) {
+          await pageLifecycle.yield();
+          if (!isCurrentCanvas(canvas)) return;
+        }
+      }
+      if (!isCurrentCanvas(canvas)) return;
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        throw new Error(gl.getProgramInfoLog(program) || 'Shader link failed.');
+      }
+      await titleSettledPromise;
+      if (!isCurrentCanvas(canvas)) return;
     } catch (error) {
+      release();
       console.warn('Interest background failed.', error);
-      throw error;
+      return;
     }
 
-    const positionBuffer = gl.createBuffer();
+    positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(
       gl.ARRAY_BUFFER,
@@ -473,6 +490,7 @@ if (canvas) {
     const timeLocation = gl.getUniformLocation(program, 'iTime');
     const introLocation = gl.getUniformLocation(program, 'iIntro');
     let hasRevealed = false;
+    let warmFrames = 0;
     let firstFrameAt = 0;
     let lastRenderAt = 0;
 
@@ -514,7 +532,7 @@ if (canvas) {
       gl.uniform1f(introLocation, Math.min(1, Math.max(0, (now - firstFrameAt) / 900)));
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-      if (!hasRevealed) {
+      if (!hasRevealed && ++warmFrames >= 3) {
         hasRevealed = true;
         document.body.classList.add('is-gpu-ready');
       }
@@ -526,15 +544,16 @@ if (canvas) {
     window.addEventListener('resize', resize);
     window.requestAnimationFrame(render);
   }
-      });
-    }, 120);
+    });
   });
 }
 
 function scheduleInterestArtifact(callback) {
   const runCallback = () => {
     if (isCurrentCanvas(canvas)) {
-      callback();
+      Promise.resolve(callback()).catch((error) => {
+        if (isCurrentCanvas(canvas)) console.warn('Interest background failed.', error);
+      });
     }
   };
   const run = () => {
@@ -569,6 +588,7 @@ async function initInterestTitle() {
   let sourcePoints = [];
   let startedAt = performance.now();
   let lastDrawAt = 0;
+  let titleFrame = 0;
   let hasAnnouncedSettled = false;
   let resolveSettled;
   const settledPromise = new Promise((resolve) => {
@@ -576,7 +596,6 @@ async function initInterestTitle() {
   });
   const settleDuration = 850;
   const activeFrameInterval = 1000 / 42;
-  const settledFrameInterval = 1000 / 24;
 
   function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
@@ -669,6 +688,8 @@ async function initInterestTitle() {
     ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     sourcePoints = createTitleSource();
     createParticles();
+    window.cancelAnimationFrame(titleFrame);
+    titleFrame = window.requestAnimationFrame(draw);
   }
 
   function announceSettled() {
@@ -688,14 +709,11 @@ async function initInterestTitle() {
 
     const elapsed = Math.max(0, time - startedAt);
     const motion = clamp(1 - elapsed / settleDuration, 0, 1);
-    const frameInterval = motion > 0 ? activeFrameInterval : settledFrameInterval;
-
-    if (elapsed >= settleDuration) {
-      announceSettled();
-    }
+    const settled = elapsed >= settleDuration + 500;
+    const frameInterval = activeFrameInterval;
 
     if (time - lastDrawAt < frameInterval) {
-      window.requestAnimationFrame(draw);
+      titleFrame = window.requestAnimationFrame(draw);
       return;
     }
 
@@ -706,7 +724,11 @@ async function initInterestTitle() {
     for (let index = 0; index < particles.length; index += 1) {
       const particle = particles[index];
 
-      if (particle.delay > 0) {
+      if (settled) {
+        particle.x = particle.targetX;
+        particle.y = particle.targetY;
+        particle.alpha = particle.targetAlpha;
+      } else if (particle.delay > 0) {
         particle.delay -= 1;
         particle.x += randomBetween(-12, 12) * motion;
         particle.y += randomBetween(-8, 8) * motion;
@@ -723,7 +745,7 @@ async function initInterestTitle() {
         continue;
       }
 
-      const shimmer = Math.sin(time * 0.004 + particle.phase) * particle.jitter * (motion + 0.1);
+      const shimmer = Math.sin(time * 0.004 + particle.phase) * particle.jitter * motion;
       ctx.globalAlpha = visibleAlpha;
       ctx.fillStyle = '#fff';
       ctx.fillRect(
@@ -735,13 +757,17 @@ async function initInterestTitle() {
     }
 
     ctx.globalAlpha = 1;
-    window.requestAnimationFrame(draw);
+    if (settled) {
+      announceSettled();
+    } else {
+      titleFrame = window.requestAnimationFrame(draw);
+    }
   }
 
   resize();
   window.addEventListener('resize', resize);
-  window.requestAnimationFrame(draw);
-  window.setTimeout(announceSettled, settleDuration + 250);
 
   return settledPromise;
 }
+
+})();

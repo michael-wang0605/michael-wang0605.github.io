@@ -2,8 +2,7 @@
   'use strict';
 
   var audio = document.getElementById('player-audio');
-  var QUIET_KEY = 'mw_audio_quiet_this_visit';
-  var hasMusicGate = document.getElementById('music-gate');
+  var PLAYING_KEY = 'mw_audio_playing_this_visit';
 
   if (!audio || (window.MWAudioPlayer && window.MWAudioPlayer.audio === audio)) {
     return;
@@ -11,36 +10,47 @@
 
   audio.loop = true;
 
-  window.MWAudioPlayer = { audio: audio };
-
-  // The homepage deliberately waits for its explicit sound-entry prompt.
-  if (hasMusicGate) {
-    return;
+  function syncControls() {
+    var playing = !audio.paused;
+    document.querySelectorAll('.music-toggle').forEach(function (button) {
+      button.textContent = playing ? '||' : '>';
+      button.setAttribute('aria-label', playing ? 'Pause music' : 'Play music');
+      button.title = playing ? 'Pause music' : 'Play music';
+    });
   }
 
-  try {
-    if (sessionStorage.getItem(QUIET_KEY) === '1') {
-      return;
-    }
-  } catch (e) {}
-
-  audio.autoplay = true;
+  window.MWAudioPlayer = { audio: audio, syncControls: syncControls };
 
   function playAudio() {
     var playback = audio.play();
-
     if (playback && playback.catch) {
-      playback.catch(function () {
-        // Some browsers require the visitor's first interaction before sound
-        // can begin. Retry transparently on that interaction.
-        document.addEventListener('pointerdown', playAudio, { once: true, capture: true });
-        document.addEventListener('keydown', playAudio, { once: true, capture: true });
-      });
+      playback.catch(syncControls);
     }
   }
 
-  playAudio();
-  audio.addEventListener('canplay', playAudio, { once: true });
-  window.addEventListener('pageshow', playAudio);
+  function onPlaybackChange() {
+    try { sessionStorage.setItem(PLAYING_KEY, audio.paused ? '0' : '1'); } catch (e) {}
+    syncControls();
+  }
+
+  function onClick(event) {
+    if (!event.target.closest || !event.target.closest('.music-toggle')) return;
+    if (audio.paused) {
+      playAudio();
+    } else {
+      audio.pause();
+    }
+  }
+
+  // This handler belongs to the persistent player and survives page changes.
+  onClick.__mwPermanent = true;
+  document.addEventListener('click', onClick);
+  audio.addEventListener('play', onPlaybackChange);
+  audio.addEventListener('pause', onPlaybackChange);
+  syncControls();
+
+  try {
+    if (sessionStorage.getItem(PLAYING_KEY) === '1') playAudio();
+  } catch (e) {}
 
 }());

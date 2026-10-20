@@ -534,7 +534,11 @@ async function initTitleCanvas() {
     return;
   }
 
-  await document.fonts.ready;
+  // Start with available fonts if the font service is slow or unreachable.
+  await Promise.race([
+    document.fonts.ready,
+    new Promise((resolve) => window.setTimeout(resolve, 1200)),
+  ]);
 
   const ctx = titleCanvas.getContext('2d');
   const heading = document.querySelector('.intro-title');

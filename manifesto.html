@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>manifesto | michael wang</title>
-    <script src="site-shell.js?v=latency-optimized"></script>
+    <script src="site-shell.js?v=smooth-startup"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -12,7 +12,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="variables.css" />
-    <link rel="stylesheet" href="styles.css?v=latency-optimized" />
+    <link rel="stylesheet" href="styles.css?v=music-controls-2" />
   </head>
   <body class="manifesto-page">
     <div id="manifesto-aurelia" class="manifesto-aurelia" aria-hidden="true"></div>
@@ -24,15 +24,18 @@
       <a class="is-current" href="manifesto.html" data-i18n="nav.manifesto">manifest<i>O</i></a>
       <a href="contact.html" data-i18n="nav.contact">contact</a>
       <span class="social-links" aria-label="Social links">
-        <a href="https://x.com/MichaelWang2027" target="_blank" rel="noreferrer">x</a>
+        <a href="https://x.com/mykuelwang" target="_blank" rel="noreferrer">x</a>
         <a href="https://www.linkedin.com/in/mwang0605/" target="_blank" rel="noreferrer">linkedin</a>
         <a href="https://github.com/michael-wang0605" target="_blank" rel="noreferrer">github</a>
-        <a href="public/assets/michael-wang-cv.pdf" target="_blank" rel="noreferrer">cv</a>
+        <a href="michael-wang-cv.pdf" target="_blank" rel="noreferrer">cv</a>
       </span>
     </nav>
 
     <main class="manifesto-main">
-      <a class="back-link" href="index.html" data-i18n="nav.home">Home</a>
+      <div class="home-controls">
+        <a class="back-link" href="index.html" data-i18n="nav.home">Home</a>
+        <button class="music-toggle" type="button" aria-label="Play music" title="Play music">&gt;</button>
+      </div>
       <section class="manifesto-stage" aria-label="Personal manifesto">
         <h1 class="manifesto-fallback-title">manifesto</h1>
         <p class="manifesto-title-note">this is my personal manifesto; it will not align with everyone else's belief.</p>
@@ -81,143 +84,9 @@
       </section>
     </main>
 
-    <script src="script.js"></script>
-    <script src="manifesto-background.js?v=title-flow-optimized"></script>
-    <script>
-      (function () {
-        var container = document.getElementById('manifesto-aurelia');
-        var titleSettledEvent = 'mw:manifesto-title-settled';
-        var lifecycle = window.MWPageLifecycle;
-        var token = lifecycle && lifecycle.getActiveToken ? lifecycle.getActiveToken() : 0;
-        var originalTimeEnd = console.timeEnd ? console.timeEnd.bind(console) : null;
-        var hasStarted = false;
-        var hasRevealed = false;
-
-        if (!container) return;
-
-        container.classList.remove('is-aurelia-ready');
-
-        function isCurrentPage() {
-          return (!lifecycle || lifecycle.getActiveToken() === token) &&
-            document.getElementById('manifesto-aurelia') === container;
-        }
-
-        function revealAurelia() {
-          if (hasRevealed || !isCurrentPage()) return;
-
-          var canvas = container.querySelector('canvas');
-
-          if (!canvas) return;
-
-          hasRevealed = true;
-          window.requestAnimationFrame(function () {
-            container.classList.add('is-aurelia-ready');
-            canvas.style.opacity = '1';
-            canvas.style.filter = 'brightness(1.55) contrast(1.14)';
-          });
-        }
-
-        function restoreConsole() {
-          if (console.timeEnd === patchedTimeEnd && originalTimeEnd) {
-            console.timeEnd = originalTimeEnd;
-          }
-        }
-
-        function patchedTimeEnd(label) {
-          var result;
-
-          if (originalTimeEnd) {
-            result = originalTimeEnd.apply(console, arguments);
-          }
-
-          if (label === 'firstFrame') {
-            revealAurelia();
-            restoreConsole();
-          }
-
-          return result;
-        }
-
-        var observer = new MutationObserver(function () {
-          var canvas = container.querySelector('canvas');
-
-          if (canvas) {
-            canvas.style.opacity = '0';
-            canvas.style.transition = 'opacity 400ms var(--ease-out), filter 400ms var(--ease-out)';
-            canvas.getBoundingClientRect();
-            observer.disconnect();
-          }
-        });
-
-        observer.observe(container, { childList: true });
-
-        function loadAurelia() {
-          var sourceUrl = new URL('public/assets/aurelia/aurelia-manifesto.js?v=repo-aurelia-6', window.location.href);
-
-          fetch(sourceUrl.href)
-            .then(function (response) {
-              if (!response.ok) {
-                throw new Error('Could not load Aurelia manifesto background.');
-              }
-
-              return response.text();
-            })
-            .then(function (code) {
-              if (!isCurrentPage()) return;
-
-              if (window.matchMedia('(max-width: 767px)').matches) {
-                var pixelRatioSource = 'o.setPixelRatio(window.devicePixelRatio)';
-                var cappedPixelRatio = 'o.setPixelRatio(Math.min(window.devicePixelRatio,1))';
-
-                if (code.indexOf(pixelRatioSource) !== -1) {
-                  code = code.replace(pixelRatioSource, cappedPixelRatio);
-                }
-              }
-
-              var run = function () {
-                Function(code + '\n//# sourceURL=' + sourceUrl.href)();
-              };
-
-              if (lifecycle && lifecycle.run) {
-                lifecycle.run(token, run);
-              } else {
-                run();
-              }
-            })
-            .catch(function (error) {
-              restoreConsole();
-              console.warn('Aurelia manifesto background failed.', error);
-            });
-        }
-
-        function startAurelia() {
-          if (hasStarted || !isCurrentPage()) return;
-
-          hasStarted = true;
-
-          if (originalTimeEnd) {
-            console.timeEnd = patchedTimeEnd;
-          }
-
-          if ('requestIdleCallback' in window) {
-            window.requestIdleCallback(loadAurelia, { timeout: 700 });
-          } else {
-            loadAurelia();
-          }
-
-          window.setTimeout(restoreConsole, 15000);
-        }
-
-        if (document.getElementById('manifesto-title-canvas')) {
-          document.addEventListener(titleSettledEvent, function () {
-            window.setTimeout(startAurelia, 120);
-          }, { once: true });
-          window.setTimeout(startAurelia, 2600);
-        } else {
-          startAurelia();
-        }
-      }());
-    </script>
+    <script src="script.js?v=loading-optimized"></script>
+    <script src="manifesto-background.js?v=smooth-startup"></script>
+    <script src="manifesto-runtime.js?v=smooth-startup"></script>
     <div class="turntable-fixed" hidden>
       <div class="volume-control">
         <input type="range" id="vol-slider" class="volume-slider" min="0" max="100" value="80" aria-label="Volume" />
@@ -267,8 +136,8 @@
         <p class="player-title">gymnopédie no.1</p>
         <p class="player-artist">erik satie</p>
       </div>
-      <audio id="player-audio" src="public/assets/butterflies-piano-sonata.mp3" preload="auto" autoplay playsinline loop></audio>
+      <audio id="player-audio" src="public/assets/butterflies-piano-sonata.mp3" preload="none" playsinline loop></audio>
     </div>
-    <script src="player.js"></script>
+    <script src="player.js?v=music-controls"></script>
   </body>
 </html>

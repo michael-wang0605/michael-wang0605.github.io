@@ -5,30 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Michael Wang's personal website." />
     <title>michael wang</title>
-    <script src="site-shell.js?v=latency-optimized"></script>
+    <script src="site-shell.js?v=smooth-startup"></script>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;600;700;800&family=Source+Code+Pro:wght@400;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;600;700;800&family=Source+Code+Pro:wght@400;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.45/dist/katex.min.css" />
     <link rel="stylesheet" href="variables.css" />
-    <link rel="stylesheet" href="styles.css?v=latency-optimized" />
+    <link rel="stylesheet" href="styles.css?v=music-controls-2" />
   </head>
   <body class="is-index">
     <canvas id="fluid-wireframe-canvas" class="fluid-wireframe-canvas" aria-hidden="true"></canvas>
     <canvas id="title-canvas" class="title-canvas" aria-hidden="true"></canvas>
-    <div class="music-gate" id="music-gate" role="dialog" aria-modal="true" aria-label="Enter the site with music">
-      <button class="music-gate-button" id="music-gate-button" type="button">
-        <span>enter</span>
-        <small>with music</small>
-      </button>
-      <button class="music-gate-quiet" id="music-gate-quiet" type="button">continue without music</button>
-    </div>
     <p class="equation-label" aria-label="z equals negative x times e to the negative quantity x squared plus y squared">
       z = -xe<sup>-(x<sup>2</sup> + y<sup>2</sup>)</sup>
     </p>
+
+    <div class="home-controls">
+      <a class="back-link" href="index.html" data-i18n="nav.home">Home</a>
+      <button class="music-toggle" type="button" aria-label="Play music" title="Play music">&gt;</button>
+    </div>
 
     <nav class="top-links" aria-label="Primary pages">
       <a href="life.html" data-i18n="nav.life">Life</a>
@@ -36,10 +36,10 @@
       <a href="manifesto.html" data-i18n="nav.manifesto">manifest<i>O</i></a>
       <a href="contact.html" data-i18n="nav.contact">contact</a>
       <span class="social-links" aria-label="Social links">
-        <a href="https://x.com/MichaelWang2027" target="_blank" rel="noreferrer">x</a>
+        <a href="https://x.com/mykuelwang" target="_blank" rel="noreferrer">x</a>
         <a href="https://www.linkedin.com/in/mwang0605/" target="_blank" rel="noreferrer">linkedin</a>
         <a href="https://github.com/michael-wang0605" target="_blank" rel="noreferrer">github</a>
-        <a href="public/assets/michael-wang-cv.pdf" target="_blank" rel="noreferrer">cv</a>
+        <a href="michael-wang-cv.pdf" target="_blank" rel="noreferrer">cv</a>
       </span>
     </nav>
 
@@ -48,7 +48,7 @@
         <h1 class="intro-title">michael wang</h1>
         <div class="intro-foot">
           <div class="intro-foot-items">
-            <p><strong>based in atlanta</strong><span id="atlanta-time">currently</span></p>
+            <p><strong>based in washington d.c.</strong><span id="atlanta-time">currently</span></p>
           </div>
         </div>
       </section>
@@ -56,7 +56,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.45/dist/katex.min.js"></script>
     <script src="fluid-wireframe-background.js"></script>
-    <script src="script.js"></script>
+    <script src="script.js?v=loading-optimized"></script>
     <script>
       if (window.katex) {
         katex.render(String.raw`z=-x e^{-(x^2+y^2)}`, document.querySelector('.equation-label'), {
@@ -113,51 +113,8 @@
         <p class="player-title">gymnopédie no.1</p>
         <p class="player-artist">erik satie</p>
       </div>
-      <audio id="player-audio" src="public/assets/butterflies-piano-sonata.mp3" preload="auto" playsinline loop></audio>
+      <audio id="player-audio" src="public/assets/butterflies-piano-sonata.mp3" preload="none" playsinline loop></audio>
     </div>
-    <script src="player.js"></script>
-    <script>
-      (function () {
-        var gate = document.getElementById('music-gate');
-        var button = document.getElementById('music-gate-button');
-        var quietButton = document.getElementById('music-gate-quiet');
-        var audio = document.getElementById('player-audio');
-        var QUIET_KEY = 'mw_audio_quiet_this_visit';
-
-        if (!gate || !button || !quietButton || !audio) return;
-
-        function leaveGate() {
-          if (gate.classList.contains('is-leaving')) return;
-          gate.classList.add('is-leaving');
-          gate.setAttribute('aria-hidden', 'true');
-          window.setTimeout(function () { gate.hidden = true; }, 700);
-        }
-
-        function enterWithMusic() {
-          try { sessionStorage.removeItem(QUIET_KEY); } catch (e) {}
-          var playback = audio.play();
-          button.disabled = true;
-
-          if (playback && playback.then) {
-            playback.then(leaveGate).catch(function () {
-              button.disabled = false;
-            });
-          } else {
-            leaveGate();
-          }
-        }
-
-        function enterQuietly() {
-          try { sessionStorage.setItem(QUIET_KEY, '1'); } catch (e) {}
-          audio.pause();
-          leaveGate();
-        }
-
-        button.addEventListener('click', enterWithMusic);
-        quietButton.addEventListener('click', enterQuietly);
-
-        if (!audio.paused) leaveGate();
-      }());
-    </script>
+    <script src="player.js?v=music-controls"></script>
   </body>
 </html>

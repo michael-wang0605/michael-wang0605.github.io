@@ -4,15 +4,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>interests | michael wang</title>
-    <script src="site-shell.js?v=latency-optimized"></script>
+    <script src="site-shell.js?v=smooth-startup"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;600;700;800&family=Source+Code+Pro:wght@400;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="variables.css" />
-    <link rel="stylesheet" href="styles.css?v=latency-optimized" />
+    <link rel="stylesheet" href="styles.css?v=music-controls-2" />
   </head>
   <body class="blank-page interest-page">
     <canvas id="interest-shader-canvas" class="interest-shader-canvas" aria-hidden="true"></canvas>
@@ -23,15 +23,18 @@
       <a href="manifesto.html" data-i18n="nav.manifesto">manifest<i>O</i></a>
       <a href="contact.html" data-i18n="nav.contact">contact</a>
       <span class="social-links" aria-label="Social links">
-        <a href="https://x.com/MichaelWang2027" target="_blank" rel="noreferrer">x</a>
+        <a href="https://x.com/mykuelwang" target="_blank" rel="noreferrer">x</a>
         <a href="https://www.linkedin.com/in/mwang0605/" target="_blank" rel="noreferrer">linkedin</a>
         <a href="https://github.com/michael-wang0605" target="_blank" rel="noreferrer">github</a>
-        <a href="public/assets/michael-wang-cv.pdf" target="_blank" rel="noreferrer">cv</a>
+        <a href="michael-wang-cv.pdf" target="_blank" rel="noreferrer">cv</a>
       </span>
     </nav>
 
     <main class="blank-page-main">
-      <a class="back-link" href="index.html" data-i18n="nav.home">Home</a>
+      <div class="home-controls">
+        <a class="back-link" href="index.html" data-i18n="nav.home">Home</a>
+        <button class="music-toggle" type="button" aria-label="Play music" title="Play music">&gt;</button>
+      </div>
       <h1 class="interest-fallback-title" data-i18n="page.interests">interests</h1>
       <p class="interest-title-note">what i would like to see happen in my lifetime</p>
       <section class="interest-copy" aria-label="interest goals">
@@ -118,10 +121,10 @@
         <p class="player-title">gymnopédie no.1</p>
         <p class="player-artist">erik satie</p>
       </div>
-      <audio id="player-audio" src="public/assets/butterflies-piano-sonata.mp3" preload="auto" autoplay playsinline loop></audio>
+      <audio id="player-audio" src="public/assets/butterflies-piano-sonata.mp3" preload="none" playsinline loop></audio>
     </div>
-    <script src="script.js"></script>
-    <script type="module" src="interest-background.js?v=title-flow-optimized"></script>
-    <script src="player.js"></script>
+    <script src="script.js?v=loading-optimized"></script>
+    <script src="interest-background.js?v=smooth-startup"></script>
+    <script src="player.js?v=music-controls"></script>
   </body>
 </html>

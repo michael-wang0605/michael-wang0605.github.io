@@ -102,6 +102,19 @@
         return activeToken;
       },
       run: runWithToken,
+      addCleanup: function (cleanup, token) {
+        token = token || tokenForWork();
+        if (token !== activeToken) {
+          cleanup();
+        } else {
+          bucket(token).push(cleanup);
+        }
+      },
+      yield: function () {
+        return new Promise(function (resolve) {
+          nativeSetTimeout(resolve, 0);
+        });
+      },
       next: function () {
         var oldToken = activeToken;
         var oldCleanups = cleanups.get(oldToken) || [];
@@ -139,12 +152,14 @@
     return;
   }
 
-  var TRANSITION_MS = 0;
   var SHELL_SCRIPT = /(?:^|\/)site-shell\.js(?:\?|#|$)/;
   var PLAYER_SCRIPT = /(?:^|\/)player\.js(?:\?|#|$)/;
   var navigating = false;
   var currentUrl = new URL(window.location.href);
   var persistentPlayer = null;
+  var scriptSources = new Map();
+  var externalScripts = new Map();
+  var pageRequests = new Map();
 
   function samePageUrl(url) {
     return url.origin === window.location.origin &&
@@ -170,29 +185,42 @@
     return url.origin === window.location.origin && (extension === 'html' || extension === '');
   }
 
-  function showTransition() {
-    document.documentElement.classList.add('is-page-transitioning');
+  function loadScriptSource(url) {
+    if (!scriptSources.has(url)) {
+      var request = fetch(url).then(function (response) {
+        if (!response.ok) throw new Error('Could not load ' + url);
+        return response.text();
+      }).catch(function (error) {
+        scriptSources.delete(url);
+        throw error;
+      });
+      scriptSources.set(url, request);
+    }
+    return scriptSources.get(url);
   }
 
-  function hideTransition() {
-    window.setTimeout(function () {
-      document.documentElement.classList.remove('is-page-transitioning');
-    }, 40);
-  }
-
-  function wait(ms) {
-    return new Promise(function (resolve) {
-      window.setTimeout(resolve, ms);
-    });
+  function loadPage(url) {
+    if (!pageRequests.has(url.href)) {
+      var request = fetch(url.href, { credentials: 'same-origin' }).then(function (response) {
+        if (!response.ok) throw new Error('Could not load ' + url.href);
+        return response.text();
+      }).catch(function (error) {
+        pageRequests.delete(url.href);
+        throw error;
+      });
+      pageRequests.set(url.href, request);
+    }
+    return pageRequests.get(url.href);
   }
 
   function syncHead(nextDocument) {
     document.title = nextDocument.title;
 
-    Array.prototype.forEach.call(nextDocument.head.querySelectorAll('link[rel="stylesheet"]'), function (link) {
+    Array.prototype.forEach.call(nextDocument.head.querySelectorAll('link[rel="stylesheet"], link[rel="modulepreload"], link[rel="preconnect"]'), function (link) {
       var href = link.getAttribute('href');
+      var rel = link.getAttribute('rel');
 
-      if (!href || document.head.querySelector('link[rel="stylesheet"][href="' + href + '"]')) {
+      if (!href || document.head.querySelector('link[rel="' + rel + '"][href="' + href + '"]')) {
         return;
       }
 
@@ -234,10 +262,14 @@
     });
 
     document.body.className = nextBody.className;
-    document.body.replaceChildren(fragment);
+    // Keep the audio connected: detaching it can pause playback in the browser.
+    Array.from(document.body.childNodes).forEach(function (node) {
+      if (node !== persistentPlayer) node.remove();
+    });
+    document.body.insertBefore(fragment, persistentPlayer);
 
-    if (persistentPlayer) {
-      document.body.appendChild(persistentPlayer);
+    if (window.MWAudioPlayer) {
+      window.MWAudioPlayer.syncControls();
     }
   }
 
@@ -266,22 +298,24 @@
       var absoluteUrl = new URL(src, window.location.href);
 
       if (absoluteUrl.origin !== window.location.origin) {
-        return new Promise(function (resolve, reject) {
+        if (window.katex && absoluteUrl.pathname.endsWith('/katex.min.js')) return Promise.resolve();
+        if (externalScripts.has(absoluteUrl.href)) return externalScripts.get(absoluteUrl.href);
+        var request = new Promise(function (resolve, reject) {
           var externalScript = document.createElement('script');
           externalScript.src = absoluteUrl.href;
           externalScript.onload = resolve;
-          externalScript.onerror = reject;
+          externalScript.onerror = function (error) {
+            externalScripts.delete(absoluteUrl.href);
+            externalScript.remove();
+            reject(error);
+          };
           document.head.appendChild(externalScript);
         });
+        externalScripts.set(absoluteUrl.href, request);
+        return request;
       }
 
-      return fetch(absoluteUrl.href)
-        .then(function (response) {
-          if (!response.ok) {
-            throw new Error('Could not load ' + absoluteUrl.href);
-          }
-          return response.text();
-        })
+      return loadScriptSource(absoluteUrl.href)
         .then(function (code) {
           lifecycle.run(token, function () {
             Function(code + '\n//# sourceURL=' + absoluteUrl.href)();
@@ -302,6 +336,16 @@
       return !SHELL_SCRIPT.test(src) && !PLAYER_SCRIPT.test(src);
     });
 
+    // Download independent files together, then execute in document order.
+    scripts.forEach(function (script) {
+      var src = script.getAttribute('src');
+      if (!src || script.type === 'module') return;
+      var url = new URL(src, window.location.href);
+      if (url.origin === window.location.origin) {
+        loadScriptSource(url.href).catch(function () {});
+      }
+    });
+
     return scripts.reduce(function (chain, script) {
       return chain.then(function () {
         return executeScript(script, token);
@@ -318,19 +362,10 @@
     }
 
     navigating = true;
-    showTransition();
 
-    return Promise.all([
-      fetch(url.href, { credentials: 'same-origin' }).then(function (response) {
-        if (!response.ok) {
-          throw new Error('Could not load ' + url.href);
-        }
-        return response.text();
-      }),
-      wait(TRANSITION_MS),
-    ])
-      .then(function (results) {
-        var nextDocument = new DOMParser().parseFromString(results[0], 'text/html');
+    return loadPage(url)
+      .then(function (html) {
+        var nextDocument = new DOMParser().parseFromString(html, 'text/html');
         var token = lifecycle.next();
 
         syncHead(nextDocument);
@@ -352,9 +387,19 @@
       })
       .finally(function () {
         navigating = false;
-        hideTransition();
       });
   }
+
+  function onLinkIntent(event) {
+    var anchor = event.target.closest && event.target.closest('a');
+    if (!isInternalPageLink(anchor)) return;
+    var url = new URL(anchor.getAttribute('href'), window.location.href);
+    if (!samePageUrl(url)) loadPage(url).catch(function () {});
+  }
+
+  onLinkIntent.__mwPermanent = true;
+  window.addEventListener('pointerover', onLinkIntent);
+  window.addEventListener('focusin', onLinkIntent);
 
   function onClick(event) {
     var anchor = event.target.closest && event.target.closest('a');
@@ -381,5 +426,6 @@
 
   window.MWSiteShell = {
     navigate: navigate,
+    loadScriptSource: loadScriptSource,
   };
 }());

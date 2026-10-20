@@ -36,10 +36,10 @@ async function initManifestoTitle() {
   let sourcePoints = [];
   let startedAt = performance.now();
   let lastDrawAt = 0;
+  let titleFrame = 0;
   let hasAnnouncedSettled = false;
   const settleDuration = 850;
   const activeFrameInterval = 1000 / 42;
-  const settledFrameInterval = 1000 / 24;
 
   function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
@@ -135,6 +135,8 @@ async function initManifestoTitle() {
     ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     sourcePoints = createTitleSource();
     createParticles();
+    window.cancelAnimationFrame(titleFrame);
+    titleFrame = window.requestAnimationFrame(draw);
   }
 
   function announceSettled() {
@@ -143,6 +145,7 @@ async function initManifestoTitle() {
     hasAnnouncedSettled = true;
 
     if (isCurrentCanvas(titleCanvas)) {
+      titleCanvas.dataset.titleSettled = 'true';
       document.dispatchEvent(new CustomEvent(TITLE_SETTLED_EVENT));
     }
   }
@@ -152,14 +155,11 @@ async function initManifestoTitle() {
 
     const elapsed = Math.max(0, time - startedAt);
     const motion = clamp(1 - elapsed / settleDuration, 0, 1);
-    const frameInterval = motion > 0 ? activeFrameInterval : settledFrameInterval;
-
-    if (elapsed >= settleDuration) {
-      announceSettled();
-    }
+    const settled = elapsed >= settleDuration + 500;
+    const frameInterval = activeFrameInterval;
 
     if (time - lastDrawAt < frameInterval) {
-      window.requestAnimationFrame(draw);
+      titleFrame = window.requestAnimationFrame(draw);
       return;
     }
 
@@ -170,7 +170,11 @@ async function initManifestoTitle() {
     for (let index = 0; index < particles.length; index += 1) {
       const particle = particles[index];
 
-      if (particle.delay > 0) {
+      if (settled) {
+        particle.x = particle.targetX;
+        particle.y = particle.targetY;
+        particle.alpha = particle.targetAlpha;
+      } else if (particle.delay > 0) {
         particle.delay -= 1;
         particle.x += randomBetween(-12, 12) * motion;
         particle.y += randomBetween(-8, 8) * motion;
@@ -187,7 +191,7 @@ async function initManifestoTitle() {
         continue;
       }
 
-      const shimmer = Math.sin(time * 0.004 + particle.phase) * particle.jitter * (motion + 0.1);
+      const shimmer = Math.sin(time * 0.004 + particle.phase) * particle.jitter * motion;
       ctx.globalAlpha = visibleAlpha;
       ctx.fillStyle = '#fff';
       ctx.fillRect(
@@ -199,12 +203,14 @@ async function initManifestoTitle() {
     }
 
     ctx.globalAlpha = 1;
-    window.requestAnimationFrame(draw);
+    if (settled) {
+      announceSettled();
+    } else {
+      titleFrame = window.requestAnimationFrame(draw);
+    }
   }
 
   resize();
   window.addEventListener('resize', resize);
-  window.requestAnimationFrame(draw);
-  window.setTimeout(announceSettled, settleDuration + 250);
 }
 })();
