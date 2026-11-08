@@ -1,17 +1,13 @@
-import { pbkdf2Sync, randomBytes, createCipheriv } from 'node:crypto';
-import { readFile, writeFile, realpath } from 'node:fs/promises';
-import { resolve, relative, dirname, sep } from 'node:path';
+import { writeFile, rename } from 'node:fs/promises';
+import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
 import { Writable } from 'node:stream';
+import { createArchiveBundle, encryptArchive } from './portfolio-bundle.mjs';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const inputPath = process.argv[2] && await realpath(resolve(process.argv[2]));
-if (!inputPath) throw new Error('Usage: node tools/protect-portfolio.mjs <private HTML file outside the website folder>');
-const inputRelative = relative(projectRoot, inputPath);
-if (inputRelative !== '..' && !inputRelative.startsWith('..' + sep) && !/^[A-Za-z]:/.test(inputRelative)) {
-  throw new Error('Keep the unencrypted source outside the website folder so the web server cannot serve it.');
-}
+if (!process.argv[2]) throw new Error('Usage: node tools/protect-portfolio.mjs <private archive.json outside the website folder>');
+const bundle = await createArchiveBundle(process.argv[2], projectRoot);
 
 let password;
 if (process.stdin.isTTY) {
@@ -28,19 +24,9 @@ if (process.stdin.isTTY) {
 }
 if (!password) throw new Error('A password is required.');
 
-const salt = randomBytes(16);
-const iv = randomBytes(12);
-const iterations = 600000;
-const key = pbkdf2Sync(password, salt, iterations, 32, 'sha256');
+const payload = encryptArchive(bundle, password);
 password = '';
-const cipher = createCipheriv('aes-256-gcm', key, iv);
-const plaintext = await readFile(inputPath);
-const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final(), cipher.getAuthTag()]);
-key.fill(0);
-plaintext.fill(0);
-const payload = {
-  version: 1, iterations,
-  salt: salt.toString('base64'), iv: iv.toString('base64'), ciphertext: ciphertext.toString('base64'),
-};
-await writeFile(resolve(projectRoot, 'public/assets/portfolio.enc.json'), JSON.stringify(payload) + '\n');
-console.log('Updated public/assets/portfolio.enc.json. Only encrypted content is published.');
+const output = resolve(projectRoot, 'public/assets/portfolio.enc.json');
+await writeFile(output + '.tmp', JSON.stringify(payload) + '\n');
+await rename(output + '.tmp', output);
+console.log('Updated the encrypted portfolio. Content and bundled assets are encrypted together.');

@@ -39,7 +39,7 @@
       var token = tokenForWork();
       nativeAddEventListener.call(this, type, listener, options);
 
-      if (token && !listener.__mwPermanent && (this === window || this === document || this === document.body)) {
+      if (token !== -1 && token && !listener.__mwPermanent && (this === window || this === document || this === document.body)) {
         var target = this;
         bucket(token).push(function () {
           nativeRemoveEventListener.call(target, type, listener, options);
@@ -51,7 +51,7 @@
       var token = tokenForWork();
 
       return nativeRequestAnimationFrame(function (time) {
-        if (token !== activeToken) {
+        if (token !== -1 && token !== activeToken) {
           return;
         }
 
@@ -66,7 +66,7 @@
       var args = Array.prototype.slice.call(arguments, 2);
 
       return nativeSetTimeout(function () {
-        if (token !== activeToken) {
+        if (token !== -1 && token !== activeToken) {
           return;
         }
 
@@ -80,7 +80,7 @@
       var token = tokenForWork();
       var args = Array.prototype.slice.call(arguments, 2);
       var id = nativeSetInterval(function () {
-        if (token !== activeToken) {
+        if (token !== -1 && token !== activeToken) {
           nativeClearInterval(id);
           return;
         }
@@ -138,6 +138,10 @@
     };
 
     window.MWPageLifecycle = lifecycle;
+    // Background preparation survives a soft navigation. Keep its scheduling
+    // separate from the timers/frames cancelled with each page's lifecycle.
+    lifecycle.backgroundFrame = nativeRequestAnimationFrame;
+    lifecycle.backgroundDelay = nativeSetTimeout;
 
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', function () {
@@ -160,6 +164,120 @@
   var scriptSources = new Map();
   var externalScripts = new Map();
   var pageRequests = new Map();
+  var backgrounds = new Map();
+  var backgroundScripts = {
+      'interests.html': ['interests', 'interest-background.js?v=cursor-orbit'],
+    'contact.html': ['contact', 'contact-background.js?v=background-warmup'],
+    'manifesto.html': ['manifesto', 'manifesto-runtime.js?v=aurelia-frame-clock'],
+  };
+
+  function prepareBackground(name) {
+    var entry = backgrounds.get(name);
+    if (!entry) {
+      entry = {};
+      backgrounds.set(name, entry);
+    }
+    if (entry.instance && entry.instance.isUsable && !entry.instance.isUsable()) {
+      entry.promise = null;
+      entry.instance = null;
+    }
+    if (!entry.promise) {
+      entry.promise = Promise.resolve().then(function () {
+        if (entry.factory) return;
+        var source = Object.values(backgroundScripts).find(function (item) { return item[0] === name; });
+        return loadScriptSource(new URL(source[1], window.location.href).href).then(function (code) {
+          Function('mwPreload', code)(true);
+        });
+      }).then(function () {
+        return entry.factory();
+      }).then(function (instance) {
+        entry.instance = instance;
+        return instance;
+      }).catch(function (error) {
+        entry.promise = null;
+        throw error;
+      });
+    }
+    return entry.promise;
+  }
+
+  var backgroundRuntime = {
+    define: function (name, factory) {
+      var entry = backgrounds.get(name) || {};
+      if (!entry.factory) entry.factory = factory;
+      backgrounds.set(name, entry);
+    },
+    prepare: prepareBackground,
+    // Token -1 identifies reusable GPU work, independent of a page's lifetime.
+    run: function (callback) { return lifecycle.run(-1, callback); },
+    frame: function (callback) {
+      return lifecycle.backgroundFrame(function (time) { lifecycle.run(-1, function () { callback(time); }); });
+    },
+    delay: function (ms) {
+      return new Promise(function (resolve) { lifecycle.backgroundDelay(resolve, ms); });
+    },
+    mount: function (name, placeholder, ready) {
+      var token = lifecycle.getActiveToken();
+      prepareBackground(name).then(async function (instance) {
+        if (ready) await ready;
+        if (!placeholder.isConnected || lifecycle.getActiveToken() !== token) return;
+        var stop = instance.start(placeholder);
+        lifecycle.addCleanup(stop, token);
+      }).catch(function (error) {
+        console.warn(name + ' background failed.', error);
+      });
+    },
+  };
+  window.MWBackgrounds = backgroundRuntime;
+
+  function prefetchBackground(url) {
+    var config = backgroundScripts[url.pathname.split('/').pop()];
+    if (!config) return Promise.resolve();
+    return loadPage(url).then(function (html) {
+      var page = new DOMParser().parseFromString(html, 'text/html');
+      var scripts = Array.from(page.body.querySelectorAll('script[src]')).filter(function (script) {
+        var src = script.getAttribute('src');
+        return !SHELL_SCRIPT.test(src) && !PLAYER_SCRIPT.test(src) &&
+          new URL(src, url).origin === url.origin;
+      });
+      return Promise.all(scripts.map(function (script) {
+        return loadScriptSource(new URL(script.getAttribute('src'), url).href);
+      }));
+    }).then(function () { return prepareBackground(config[0]); });
+  }
+
+  function canWarmBackgrounds() {
+    var connection = navigator.connection;
+    return !document.hidden && !(connection && (connection.saveData || /(^|-)2g$/.test(connection.effectiveType)));
+  }
+
+  async function warmBackgrounds() {
+    // Let the homepage's title and wireframe settle before using spare GPU time.
+    await backgroundRuntime.delay(2200);
+    // Finish the lighter scenes before the more expensive ray-marched shader.
+    for (var filename of ['contact.html', 'manifesto.html', 'interests.html']) {
+      if (!canWarmBackgrounds()) return;
+      await new Promise(function (resolve) {
+        if (window.requestIdleCallback) window.requestIdleCallback(resolve, { timeout: 2000 });
+        else lifecycle.backgroundDelay(resolve, 200);
+      });
+      if (!canWarmBackgrounds()) return;
+      try {
+        await prefetchBackground(new URL(filename, window.location.href));
+      } catch (error) {
+        // A failed speculative request can be retried when the page is opened.
+      }
+      await backgroundRuntime.delay(1200);
+    }
+  }
+
+  var startWarmup = function () { warmBackgrounds(); };
+  startWarmup.__mwPermanent = true;
+  if (document.readyState === 'complete') startWarmup();
+  else window.addEventListener('load', startWarmup, { once: true });
+  var resumeWarmup = function () { if (canWarmBackgrounds()) warmBackgrounds(); };
+  resumeWarmup.__mwPermanent = true;
+  document.addEventListener('visibilitychange', resumeWarmup);
 
   function samePageUrl(url) {
     return url.origin === window.location.origin &&
@@ -201,7 +319,9 @@
 
   function loadPage(url) {
     if (!pageRequests.has(url.href)) {
-      var request = fetch(url.href, { credentials: 'same-origin' }).then(function (response) {
+      // Revalidate HTML so soft navigation cannot restore an older page from
+      // the browser cache after a deployment or local edit.
+      var request = fetch(url.href, { credentials: 'same-origin', cache: 'no-cache' }).then(function (response) {
         if (!response.ok) throw new Error('Could not load ' + url.href);
         return response.text();
       }).catch(function (error) {
@@ -286,7 +406,11 @@
         type: 'text/javascript',
       }));
 
-      moduleUrl += (moduleUrl.indexOf('?') === -1 ? '?' : '&') + 'mw_nav=' + token;
+      // Vendor modules define shared custom elements and must load only once.
+      // Local page modules still need to execute for each navigation.
+      if (src && !script.hasAttribute('data-load-once') && new URL(moduleUrl).origin === window.location.origin) {
+        moduleUrl += (moduleUrl.indexOf('?') === -1 ? '?' : '&') + 'mw_nav=' + token;
+      }
       return import(moduleUrl).finally(function () {
         if (!src) {
           URL.revokeObjectURL(moduleUrl);
@@ -366,6 +490,7 @@
     return loadPage(url)
       .then(function (html) {
         var nextDocument = new DOMParser().parseFromString(html, 'text/html');
+        window.dispatchEvent(new CustomEvent('mw:page-leave', { detail: { url: url.href } }));
         var token = lifecycle.next();
 
         syncHead(nextDocument);
@@ -394,7 +519,10 @@
     var anchor = event.target.closest && event.target.closest('a');
     if (!isInternalPageLink(anchor)) return;
     var url = new URL(anchor.getAttribute('href'), window.location.href);
-    if (!samePageUrl(url)) loadPage(url).catch(function () {});
+    if (!samePageUrl(url)) {
+      loadPage(url).catch(function () {});
+      if (canWarmBackgrounds()) prefetchBackground(url).catch(function () {});
+    }
   }
 
   onLinkIntent.__mwPermanent = true;

@@ -1,4 +1,8 @@
 (() => {
+const backgrounds = window.MWBackgrounds;
+const pageLifecycle = window.MWPageLifecycle;
+const pageToken = pageLifecycle.getActiveToken();
+const isCurrentTitle = () => titleCanvas && titleCanvas.isConnected && pageLifecycle.getActiveToken() === pageToken;
 const canvas = document.getElementById('contact-field-canvas');
 const titleCanvas = document.getElementById('contact-title-canvas');
 const FIELD_PIXEL_RATIO_CAP = 1.65;
@@ -6,16 +10,10 @@ const TITLE_PIXEL_RATIO_CAP = 1.35;
 const DESKTOP_BLADE_COUNT = 5600;
 const MOBILE_BLADE_COUNT = 2600;
 
-if (canvas) {
-  initContactField().catch((error) => {
-    console.warn('Contact field background failed.', error);
-  });
-}
-
-if (titleCanvas) {
-  initContactTitle().catch((error) => {
-    console.warn('Contact title animation failed.', error);
-  });
+backgrounds.define('contact', prepareContactField);
+if (typeof mwPreload === 'undefined' && canvas) backgrounds.mount('contact', canvas);
+if (typeof mwPreload === 'undefined' && titleCanvas) {
+  initContactTitle().catch((error) => console.warn('Contact title animation failed.', error));
 }
 
 async function initContactTitle() {
@@ -26,6 +24,7 @@ async function initContactTitle() {
     }),
   ]);
 
+  if (!isCurrentTitle()) return;
   const ctx = titleCanvas.getContext('2d');
   const particles = [];
   let width = 1;
@@ -112,6 +111,7 @@ async function initContactTitle() {
   }
 
   function resize() {
+    if (!isCurrentTitle()) return;
     width = window.innerWidth;
     height = window.innerHeight;
     pixelRatio = Math.min(window.devicePixelRatio || 1, TITLE_PIXEL_RATIO_CAP);
@@ -125,6 +125,7 @@ async function initContactTitle() {
   }
 
   function draw(time) {
+    if (!isCurrentTitle()) return;
     const elapsed = Math.max(0, time - startedAt);
     const motion = clamp(1 - elapsed / settleDuration, 0, 1);
 
@@ -170,7 +171,10 @@ async function initContactTitle() {
   window.requestAnimationFrame(draw);
 }
 
-async function initContactField() {
+async function prepareContactField() {
+  const canvas = document.createElement('canvas');
+  let active = false;
+  let frame = 0;
   const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js');
   const renderer = new THREE.WebGLRenderer({
     canvas,
@@ -462,6 +466,7 @@ async function initContactField() {
   }
 
   function animate() {
+    if (!active || !canvas.isConnected) return;
     const elapsed = clock.getElapsedTime();
 
     smoothPointer.lerp(targetPointer, 0.06);
@@ -469,6 +474,11 @@ async function initContactField() {
       grass.material.uniforms.uTime.value = elapsed;
       grass.material.uniforms.uIntro.value = THREE.MathUtils.smoothstep(elapsed, 0.25, 1.9);
     }
+    drawField();
+    frame = backgrounds.frame(animate);
+  }
+
+  function drawField() {
     if (fieldTarget && dofMaterial) {
       renderer.setRenderTarget(fieldTarget);
       renderer.clear();
@@ -479,13 +489,43 @@ async function initContactField() {
     } else {
       renderer.render(scene, camera);
     }
-    window.requestAnimationFrame(animate);
   }
 
   setupDepthOfFieldPass();
   resize();
-  window.addEventListener('resize', resize);
-  window.addEventListener('pointermove', onPointerMove, { passive: true });
-  window.requestAnimationFrame(animate);
+  try {
+    await backgrounds.run(() => renderer.compileAsync(scene, camera));
+    await backgrounds.run(() => renderer.compileAsync(postScene, postCamera));
+    drawField();
+  } catch (error) {
+    grass.geometry.dispose();
+    grass.material.dispose();
+    fieldTarget.dispose();
+    postScene.children.forEach((mesh) => mesh.geometry.dispose());
+    dofMaterial.dispose();
+    renderer.dispose();
+    renderer.forceContextLoss();
+    throw error;
+  }
+  return {
+    isUsable: () => !renderer.getContext().isContextLost(),
+    start(placeholder) {
+      for (const attribute of placeholder.attributes) canvas.setAttribute(attribute.name, attribute.value);
+      placeholder.replaceWith(canvas);
+      if (width !== window.innerWidth || height !== window.innerHeight) resize();
+      active = true;
+      clock.start();
+      window.addEventListener('resize', resize);
+      window.addEventListener('pointermove', onPointerMove, { passive: true });
+      frame = backgrounds.frame(animate);
+      return () => {
+        active = false;
+        window.cancelAnimationFrame(frame);
+        window.removeEventListener('resize', resize);
+        window.removeEventListener('pointermove', onPointerMove);
+        canvas.remove();
+      };
+    },
+  };
 }
 })();

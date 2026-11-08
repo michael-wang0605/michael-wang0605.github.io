@@ -1,4 +1,5 @@
 (() => {
+const backgrounds = window.MWBackgrounds;
 const canvas = document.getElementById('interest-shader-canvas');
 const titleCanvas = document.getElementById('interest-title-canvas');
 const TITLE_SETTLED_EVENT = 'mw:interest-title-settled';
@@ -12,38 +13,25 @@ function isCurrentCanvas(element) {
 }
 
 let titleSettledPromise = Promise.resolve();
-if (titleCanvas) {
+if (typeof mwPreload === 'undefined' && titleCanvas) {
   titleSettledPromise = initInterestTitle().catch((error) => {
     console.warn('Interest title animation failed.', error);
   });
 }
 
-if (canvas) {
-  window.requestAnimationFrame(() => {
-    scheduleInterestArtifact(async () => {
-    const gl = canvas.getContext('webgl', {
-      alpha: false,
-      antialias: false,
-      depth: false,
-      stencil: false,
-      powerPreference: 'high-performance',
-    });
-
-    if (!gl) {
-      console.warn('Interest background failed: WebGL is unavailable.');
-    } else {
-      const parallelCompile = gl.getExtension('KHR_parallel_shader_compile');
-      if (!parallelCompile) {
-        await titleSettledPromise;
-        if (!isCurrentCanvas(canvas)) return;
-      }
-      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const compactViewport = window.matchMedia('(max-width: 767px)').matches;
-      const rayMarchIterations = 144;
-      const shadowIterations = 18;
-      const renderPixelRatioCap = compactViewport ? 0.58 : 0.92;
-      const renderFrameInterval = reducedMotion ? 1000 / 15 : compactViewport ? 1000 / 30 : 0;
-
+backgrounds.define('interests', async () => {
+  const canvas = document.createElement('canvas');
+  const gl = canvas.getContext('webgl', {
+    alpha: false, antialias: false, depth: false, stencil: false,
+    powerPreference: 'high-performance',
+  });
+  if (!gl) throw new Error('WebGL is unavailable.');
+  const parallelCompile = gl.getExtension('KHR_parallel_shader_compile');
+  const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
+  let reducedMotion = motionPreference.matches;
+  const rayMarchIterations = 144;
+  const shadowIterations = 18;
     const vertexShader = `
       attribute vec2 aPosition;
 
@@ -58,6 +46,7 @@ if (canvas) {
       uniform vec3 iResolution;
       uniform float iTime;
       uniform float iIntro;
+      uniform vec2 iPointer;
 
       // Based on this tutorial: https://www.youtube.com/watch?v=PGtv-dBi2wE
       // Soft shadow implementation based on: https://iquilezles.org/articles/rmshadows
@@ -361,6 +350,7 @@ if (canvas) {
           // Translate viewport. Mobile moves the artifact out of the text column.
           float mobile = step(iResolution.x, 760.0);
           vec2 center = mix(vec2(0.296, 0.29), vec2(0.735, 0.54), mobile);
+          center += iPointer * vec2(0.018, 0.022);
           vec2 uv = (fragCoord/iResolution.xy - center) * vec2(1., iResolution.y / iResolution.x);
           vec2 uvx1 = ((fragCoord-vec2(2., 0.))/iResolution.xy - center) * vec2(1., iResolution.y / iResolution.x);
           vec2 uvx2 = ((fragCoord+vec2(2., 0.))/iResolution.xy - center) * vec2(1., iResolution.y / iResolution.x);
@@ -375,7 +365,8 @@ if (canvas) {
           uvy2 *= viewportScale;
 
           // Animate camera and compute camera ray
-          mat3 crot = rotAxis(vec3(0., 1., 0.), iTime * 0.15);
+          mat3 crot = rotAxis(vec3(0., 1., 0.), iTime * 0.15 + iPointer.x * 0.24)
+                    * rotAxis(vec3(1., 0., 0.), -iPointer.y * 0.14);
           vec3 r0 = vec3(0., 0., -40. + (sin(iTime * 0.25) * 0.5 + 0.5) * 15.);
           vec3 rd = normalize(vec3(uv, 1.));
           r0 = crot * r0;
@@ -450,27 +441,22 @@ if (canvas) {
       const loseContext = gl.getExtension('WEBGL_lose_context');
       if (loseContext) loseContext.loseContext();
     };
-    pageLifecycle.addCleanup(release, pageToken);
 
     try {
       program = createProgram();
       // Reading compile/link status immediately forces a synchronous stall.
       if (parallelCompile) {
         while (!gl.getProgramParameter(program, parallelCompile.COMPLETION_STATUS_KHR)) {
-          await pageLifecycle.yield();
-          if (!isCurrentCanvas(canvas)) return;
+          if (gl.isContextLost()) throw new Error('WebGL context lost during preparation.');
+          await backgrounds.delay(16);
         }
       }
-      if (!isCurrentCanvas(canvas)) return;
       if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
         throw new Error(gl.getProgramInfoLog(program) || 'Shader link failed.');
       }
-      await titleSettledPromise;
-      if (!isCurrentCanvas(canvas)) return;
     } catch (error) {
       release();
-      console.warn('Interest background failed.', error);
-      return;
+      throw error;
     }
 
     positionBuffer = gl.createBuffer();
@@ -489,13 +475,41 @@ if (canvas) {
     const resolutionLocation = gl.getUniformLocation(program, 'iResolution');
     const timeLocation = gl.getUniformLocation(program, 'iTime');
     const introLocation = gl.getUniformLocation(program, 'iIntro');
+    const pointerLocation = gl.getUniformLocation(program, 'iPointer');
+    const pointer = { x: 0, y: 0, targetX: 0, targetY: 0 };
+    let active = false;
+    let frame = 0;
     let hasRevealed = false;
     let warmFrames = 0;
     let firstFrameAt = 0;
     let lastRenderAt = 0;
 
+    function onPointerMove(event) {
+      if (reducedMotion || !finePointer.matches || event.pointerType === 'touch') return;
+      pointer.targetX = Math.max(-1, Math.min(1, event.clientX / window.innerWidth * 2 - 1));
+      pointer.targetY = Math.max(-1, Math.min(1, 1 - event.clientY / window.innerHeight * 2));
+    }
+
+    function resetPointer() {
+      pointer.targetX = pointer.targetY = 0;
+    }
+
+    function onPointerOut(event) {
+      if (!event.relatedTarget) resetPointer();
+    }
+
+    function onVisibilityChange() {
+      if (document.hidden) resetPointer();
+    }
+
+    function onInputPreferenceChange() {
+      reducedMotion = motionPreference.matches;
+      resetPointer();
+      pointer.x = pointer.y = 0;
+    }
+
     function resize() {
-      const pixelRatio = Math.min(window.devicePixelRatio || 1, renderPixelRatioCap);
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, window.innerWidth < 768 ? 0.58 : 0.92);
       const width = Math.max(1, Math.floor(window.innerWidth * pixelRatio));
       const height = Math.max(1, Math.floor(window.innerHeight * pixelRatio));
 
@@ -508,14 +522,19 @@ if (canvas) {
     }
 
     function render(now) {
-      if (!isCurrentCanvas(canvas)) return;
+      if (!active || !canvas.isConnected || gl.isContextLost()) return;
+      const renderFrameInterval = reducedMotion ? 1000 / 15 : window.innerWidth < 768 ? 1000 / 30 : 0;
 
       if (lastRenderAt && now - lastRenderAt < renderFrameInterval) {
-        window.requestAnimationFrame(render);
+        frame = backgrounds.frame(render);
         return;
       }
 
+      const delta = lastRenderAt ? Math.min((now - lastRenderAt) / 1000, 0.05) : 1 / 60;
       lastRenderAt = now;
+      const pointerEase = 1 - Math.exp(-7 * delta);
+      pointer.x += (pointer.targetX - pointer.x) * pointerEase;
+      pointer.y += (pointer.targetY - pointer.y) * pointerEase;
 
       if (!firstFrameAt) {
         firstFrameAt = now;
@@ -530,6 +549,7 @@ if (canvas) {
       gl.uniform3f(resolutionLocation, canvas.width, canvas.height, 1);
       gl.uniform1f(timeLocation, (now * 0.001) * (reducedMotion ? 0.12 : 0.72));
       gl.uniform1f(introLocation, Math.min(1, Math.max(0, (now - firstFrameAt) / 900)));
+      gl.uniform2f(pointerLocation, pointer.x, pointer.y);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
       if (!hasRevealed && ++warmFrames >= 3) {
@@ -537,36 +557,54 @@ if (canvas) {
         document.body.classList.add('is-gpu-ready');
       }
 
-      window.requestAnimationFrame(render);
+      frame = backgrounds.frame(render);
     }
 
-    resize();
-    window.addEventListener('resize', resize);
-    window.requestAnimationFrame(render);
-  }
-    });
-  });
-}
 
-function scheduleInterestArtifact(callback) {
-  const runCallback = () => {
-    if (isCurrentCanvas(canvas)) {
-      Promise.resolve(callback()).catch((error) => {
-        if (isCurrentCanvas(canvas)) console.warn('Interest background failed.', error);
-      });
-    }
-  };
-  const run = () => {
-    if (!isCurrentCanvas(canvas)) return;
+    // A tiny draw uploads the full-screen triangle without rendering a hidden
+    // full-resolution animation. The linked program stays with this canvas.
+    canvas.width = canvas.height = 1;
+    gl.viewport(0, 0, 1, 1);
+    gl.useProgram(program);
+    gl.enableVertexAttribArray(positionLocation);
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform3f(resolutionLocation, 1, 1, 1);
+    gl.uniform1f(introLocation, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    return {
+      isUsable: () => !gl.isContextLost(),
+      start(placeholder) {
+        for (const attribute of placeholder.attributes) canvas.setAttribute(attribute.name, attribute.value);
+        placeholder.replaceWith(canvas);
+        active = true;
+        firstFrameAt = lastRenderAt = warmFrames = 0;
+        hasRevealed = false;
+        onInputPreferenceChange();
+        window.addEventListener('pointermove', onPointerMove, { passive: true });
+        window.addEventListener('pointerout', onPointerOut, { passive: true });
+        window.addEventListener('blur', resetPointer);
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        motionPreference.addEventListener('change', onInputPreferenceChange);
+        finePointer.addEventListener('change', onInputPreferenceChange);
+        resize();
+        frame = backgrounds.frame(render);
+        return () => {
+          active = false;
+          window.cancelAnimationFrame(frame);
+          window.removeEventListener('pointermove', onPointerMove);
+          window.removeEventListener('pointerout', onPointerOut);
+          window.removeEventListener('blur', resetPointer);
+          document.removeEventListener('visibilitychange', onVisibilityChange);
+          motionPreference.removeEventListener('change', onInputPreferenceChange);
+          finePointer.removeEventListener('change', onInputPreferenceChange);
+          canvas.remove();
+        };
+      },
+    };
+});
 
-    if ('requestIdleCallback' in window) {
-      window.requestIdleCallback(runCallback, { timeout: 700 });
-    } else {
-      window.setTimeout(runCallback, 0);
-    }
-  };
-
-  run();
+if (typeof mwPreload === 'undefined' && canvas) {
+  backgrounds.mount('interests', canvas, titleSettledPromise);
 }
 
 async function initInterestTitle() {
@@ -594,6 +632,7 @@ async function initInterestTitle() {
   const settledPromise = new Promise((resolve) => {
     resolveSettled = resolve;
   });
+  pageLifecycle.addCleanup(resolveSettled, pageToken);
   const settleDuration = 850;
   const activeFrameInterval = 1000 / 42;
 
