@@ -1,132 +1,122 @@
 # Private portfolio
 
-The existing portfolio entrance is unchanged: the small password underline,
-moonlit object, particle title, and slowed dot departure lead into the collection.
-All pages use the site's existing black canvas, Noto Sans JP / Source Code Pro,
-shared public navigation, fine rules, and spacing conventions.
+The portfolio uses the site's existing type and monochrome palette, with the
+original Life starfield behind both the password entrance and unlocked views.
+Content and attachments remain encrypted. Public pages and shared styling are
+unchanged; nothing is deployed by the local editing tools.
 
-The collection has dedicated pages:
+## Routes
 
-- `portfolio.html`: collection landing page
-- `portfolio-work.html`: professional, engineering, and independent work
-- `portfolio-research.html`: scientific and academic work
-- `portfolio-life.html`: personal stories, experiences, and the preserved timeline
-- `portfolio-archive.html`: documents, earlier versions, and other artifacts
-- `portfolio-entry.html?entry=ID`: an individual entry
+- `portfolio.html`: short introduction and four collection links.
+- `portfolio-work.html`: Defense, Treasury, NOVA, and ESTO.
+- `portfolio-research.html`: ferroptosis, LLM bias research, and a working paper.
+- `portfolio-life.html`: the actual photograph, timeline, and event notes.
+- `portfolio-archive.html`: compact project notes and expandable documents.
+- `portfolio-entry.html?entry=ID`: reusable detail view.
 
-Every URL is a content-free shell until unlocked. `life.html` redirects to the
-protected Life section and contains no personal timeline. The original Life HTML
-remains intact outside the site, and an encrypted copy is downloadable inside
-Archive. The initial entries are drawn from the owner's existing CV, Life page,
-and this website. No publication abstracts, project results, or images have been
-invented. The publication records retain their preprint / working-paper status.
+All 17 entry IDs remain valid. Work: `w05`, `w01`, `w03`, `w02`; Research:
+`r02`, `r01`, `r03`; Life: `l02`, `l01`; Archive: `a03`–`a07`; documents / earlier
+versions: `w04`, `a01`, `a02`. No existing public route was renamed or replaced.
+`life.html` already redirected into the portfolio before this task and remains
+byte-for-byte unchanged, as does `life-background.js`.
 
-## Privacy and session behavior
+## Editing content
 
-`public/assets/portfolio.enc.json` is an AES-256-GCM encrypted bundle containing
-all entry text, metadata, and the actual bytes of its private attachments. It uses
-PBKDF2-SHA-256 with 600,000 iterations, a random 16-byte salt, random 12-byte IV,
-and version-specific authenticated additional data. The envelope is version 2;
-its decrypted archive format is version 1.
-
-The browser decrypts the bundle only after a correct password. Text is rendered
-with DOM text nodes, never injected as HTML. Attachments become in-memory Blob
-URLs only when displayed. Private HTML snapshots are download-only attachments.
-Links allow web and email URLs; active attachment formats are not embedded.
-
-The unlocked collection stays in memory while navigating between portfolio
-pages in the same tab. Locking, leaving for a public page, refreshing, or leaving
-the tab's document clears it. Blob URLs are revoked when a view is removed or a
-session is locked. Reloading or opening a new tab requires the password again.
-There is no password, decrypted content, or key in localStorage, sessionStorage,
-cookies, service workers, or URLs. Public pages and the already public CV links
-remain accessible as before.
-
-This is password-based encryption for a static website, not user accounts or
-server-side authorization. The public host serves ciphertext; a visitor needs
-the password to decrypt the collection. The public Git repository must never
-contain private source documents or media in plaintext.
-
-The former public Life page is also present in older Git commits. Publishing
-this implementation replaces the current page with a protected redirect; it
-does not rewrite repository history or remove copies that were already public.
-Historical removal is a separate, coordinated repository and indexing task.
-
-## Add or edit content
-
-The editable source is outside the website folder:
+The source is outside the served repository:
 
 `../personal-website-private/archive/archive.json`
 
-Its `assets/` directory holds the original private files. Keep a backup of this
-private directory. The earlier `../personal-website-private/portfolio.html` and
-`../personal-website-private/life-hidden/life.html` are preserved as originals.
+Its `assets/` directory contains the actual attachments. Never move private
+source into this site, even into an ignored folder: the HTTP server can serve it.
+Backups before the CV review and editorial cleanup are stored beside the source.
 
-An entry has an ID, section, title, date, kind, summary, optional metadata, and
-content blocks. IDs should be neutral, short lowercase identifiers; they appear
-in entry URLs. Add another object to `entries`, using one of `work`, `research`,
-`life`, or `archive` as its section. It automatically appears in that section's
-index and previous/next navigation. No new HTML page or layout is needed.
+Each entry has `id`, `section`, `title`, `date`, `kind`, `summary`, `metadata`, and
+`blocks`. Array order controls listing and previous / next order. Useful options:
 
-Supported blocks:
+- `signal`: a short, supported credential or project milestone.
+- `secondary: true`: a Research entry on the working-papers shelf.
+- `reference: true`: an Archive entry inside the documents disclosure.
+- `inline: true`: a short note shown directly in the list instead of an extra click.
 
-- `paragraph` / `heading`: `{ "type": "paragraph", "text": "..." }`
-- `list`: `{ "type": "list", "items": ["..."] }`
-- `quote`: `{ "type": "quote", "text": "...", "attribution": "..." }`
-- `link`: `{ "type": "link", "label": "...", "url": "https://..." }`
-- `media`: `{ "type": "media", "asset": "asset-id", "alt": "...", "caption": "..." }`
-- `gallery`: `{ "type": "gallery", "items": [{ "asset": "asset-id", "alt": "...", "caption": "..." }] }`
-- `timeline`: `{ "type": "timeline", "items": [{ "date": "...", "datetime": "YYYY-MM", "text": "...", "note": "..." }] }`
+The top-level `credentialLine` is an optional overview line. `sections` contains
+descriptions, optional media `blocks`, and Life `groups` referencing entry IDs.
+Empty groups are omitted. Do not add placeholder headings or media slots just
+to fill out a case study; add actual materials when available.
 
-Use metadata for roles, collaborators, publication information, dates, and tools.
-Use headings and paragraphs for context, contributions, methods, abstracts,
-findings, outcomes, or reflections as appropriate. Life and Archive entries can
-be a photograph and a few words; they need no professional framing.
+Block types: `paragraph`, `heading`, `list`, `quote`, `link`, `media`, `gallery`,
+`timeline`, `note`, and `media-slot`. A note with `collapsed: true` becomes an
+expandable disclosure, useful for research context or metric definitions. Lists
+use `items`; other text blocks use `text`. A link needs `label` and `url`.
+Media references an ID in `assets`; galleries contain media items. Images display
+without download clutter unless `download: true` is set. Other attachments retain
+download links. HTML snapshots are download-only.
 
-Declare each attachment in the source's `assets` object:
+The UI uses one sticky navigation row, concise entry summaries, a reading column,
+and previous / next links. Entries with more than three headings have optional
+collapsed contents. Archive notes are inline; older documents are collapsed.
+The CSS is consolidated and scoped to the portfolio.
 
-```json
-{
-  "asset-id": {
-    "file": "assets/filename.pdf",
-    "name": "filename.pdf",
-    "type": "application/pdf"
-  }
-}
-```
+## Evidence and copy
 
-Supported types include JPEG, PNG, WebP, GIF, AVIF, PDF, plain text, Markdown,
-CSV, MP3, Ogg, WAV, MP4, and WebM. Other source artifacts can be stored as
-`application/octet-stream` and downloaded. Photos, audio, video, documents, and
-galleries reuse the same entry layout. PDFs have a preview and download link.
-Keep assets under 25 MB each and the collection under 64 MB before encoding.
-Paths, including symlinks, must remain inside the private source directory.
+Titles and month-level periods match the repository CV. The stronger editorial
+pass foregrounds CV-supported appointments, selections, technical work, and pilot
+milestones. It does not turn a pilot into revenue, assets into company valuation,
+or a prototype into a production deployment. The CV remains the source of these
+claims, not independent verification. Full provenance is stored privately in
+`editorialSources`, which is stripped from the encrypted published bundle.
 
-From the website directory, publish an updated encrypted bundle with:
+CV experiment-specific bias figures lead the research account. The earlier
+owner-supplied percentage-point / utility figures remain in collapsed evaluation
+notes with their unresolved benchmark context. The author / publication links
+previously verified against PubMed and SSRN are retained. No missing screenshots,
+architecture diagrams, methods, personal stories, or experimental data are invented.
+
+Private reviews: `../personal-website-private/portfolio-cv-review.md` and the
+source's editorial provenance. The CV PDF copies are unchanged.
+
+## Build and verify locally
+
+There is no package manager or site build. Rebuild encrypted content with:
 
 ```powershell
 node tools/protect-portfolio.mjs ../personal-website-private/archive/archive.json
-```
-
-Enter the existing portfolio password at the hidden prompt. The script validates
-the source and attachments and atomically replaces only the encrypted bundle.
-Never put the password in source files or plaintext content under this website
-folder, even if ignored by Git: the local static server would still serve it.
-The existing public site still has no package manager or regular build step.
-
-## Verification and publishing
-
-```powershell
-node tools/check-portfolio.mjs
+node tools/check-portfolio.mjs ../personal-website-private/archive/archive.json
 python -m http.server 8000 --bind 0.0.0.0
 ```
 
-Open `http://localhost:8000/portfolio.html` or any section URL. Verify the entrance,
-unlock, section and entry navigation, media, scrolling on narrow screens, lock,
-and public-page exit. Refresh and direct visits must require the password.
+The rebuild verifies the existing password before atomically replacing
+`public/assets/portfolio.enc.json`. A typo leaves the bundle intact. Never put a
+real password in a command argument, source, documentation, or test fixture.
+The optional private `rebuild-portfolio-local.py` helper provides masked local
+entry and does not print or persist the password.
 
-The automated check uses synthetic data outside the served folder to verify
-cryptography, tamper rejection, path boundaries, rendering, sessions, asset
-revocation, and page shells. It does not replace visual review of real media.
-Publish the changed public files and encrypted bundle through the site's normal
-deployment process; local edits do not update the live domain automatically.
+Node checks cover encryption / tampering, password-preserving updates, path
+boundaries, all entry views, links, attachments, locking, reduced motion, stable
+in-place navigation, history, and cleanup. Private browser review scripts test
+real rendering with an intercepted encrypted test copy of the source; they never
+replace the real bundle with a synthetic password.
+
+Completed checks include all 17 entries at 1440 / 390 / 320 px, navigation at
+1024 px, frame sampling for flicker, normal and reduced-motion starfields,
+disclosures, media, public exit, refresh, and authentication. Public source files
+and CV copies retain their original hashes. The encrypted bundle was rebuilt
+with the existing password; no deployment was performed.
+
+## Navigation and security
+
+Private views render synchronously in the same root, retaining the canvas and
+lifecycle. Back / forward restores reading position. Public exit, refresh,
+pagehide, and lock clear decrypted content; no passwords, keys, or plaintext are
+stored in browser persistence. Blob attachment URLs are revoked when discarded.
+
+The only shared-script exception remains three lines in `site-shell.js`: a
+guarded portfolio history hook, its comment, and URL synchronization. Public /
+locked routes decline the hook and use the existing router. Original vs updated
+public navigation, history, typography, and geometry matched in browser checks.
+
+Protection is browser-side AES-256-GCM encryption with PBKDF2-SHA-256 (600,000
+iterations), not server-side authorization. Ciphertext can be downloaded for
+offline password guessing; security depends on the password and host / script
+integrity. Already public CVs, images, or Git history are not made private by
+bundling encrypted copies. The existing encryption format and password flow are
+unchanged.

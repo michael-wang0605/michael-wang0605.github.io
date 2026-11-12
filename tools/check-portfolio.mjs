@@ -5,6 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createDecipheriv, pbkdf2Sync, webcrypto } from 'node:crypto';
 import vm from 'node:vm';
+import { spawnSync } from 'node:child_process';
 import { AAD, createArchiveBundle, encryptArchive, validateArchive, isWithin } from './portfolio-bundle.mjs';
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -53,6 +54,7 @@ class Element extends Events {
   set innerHTML(_value) { throw new Error('Private content must never be inserted as HTML.'); }
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   getAttribute(name) { return this.attributes.get(name); }
+  hasAttribute(name) { return this.attributes.has(name); }
   removeAttribute(name) { this.attributes.delete(name); }
   focus() { this.focused = true; }
   blur() { this.focused = false; }
@@ -78,12 +80,14 @@ async function harness(payload) {
   window.location = new URL('http://localhost:8000/portfolio.html');
   window.crypto = webcrypto;
   window.matchMedia = () => ({ matches: false });
+  window.history = { scrollRestoration: 'auto', pushState(_state, _title, href) { window.location = new URL(href); } };
   window.setTimeout = (fn, duration) => { const id = ++nextId; timers.set(id, { fn, duration }); return id; };
   window.clearTimeout = id => timers.delete(id);
   window.MWPageLifecycle = { addCleanup: fn => cleanups.push(fn) };
   for (const name of ['localStorage', 'sessionStorage']) Object.defineProperty(window, name, { get() { throw new Error('Persistent storage must not be used.'); } });
   Object.defineProperty(document, 'cookie', { get() { throw new Error('Cookies must not be used.'); }, set() { throw new Error('Cookies must not be used.'); } });
   document.createElement = tag => new Element(tag);
+  document.createElementNS = (_namespace, tag) => new Element(tag);
   document.getElementById = id => current.nodes[id];
   document.querySelector = selector => selector === '.portfolio-main' ? current.main : current.heading;
   let pendingFetch = null;
@@ -124,8 +128,20 @@ async function harness(payload) {
     current.nodes['portfolio-password'].value = value;
     current.nodes['portfolio-form'].dispatchEvent({ type: 'submit', preventDefault() {} });
   }
+  function visit(href, options = {}) {
+    const anchor = new Element('a');
+    anchor.setAttribute('href', href);
+    anchor.closest = () => anchor;
+    const event = { type: 'click', target: anchor, button: 0, preventDefault() { this.defaultPrevented = true; }, stopImmediatePropagation() {}, ...options };
+    document.dispatchEvent(event);
+    return event;
+  }
+  function pop(href) {
+    window.location = new URL(href, window.location.href);
+    return window.MWPortfolioNavigation.handlePopState();
+  }
   return { window, document, context, urls, timers, mount, flush, until, submit, session: () => window.MWPortfolioSession,
-    waitForFetch: promise => { pendingFetch = promise; }, cleanup: () => cleanups.forEach(fn => fn()) };
+    visit, pop, waitForFetch: promise => { pendingFetch = promise; }, cleanup: () => cleanups.forEach(fn => fn()) };
 }
 
 function decrypt(payload, secret, aad = AAD) {
@@ -182,6 +198,22 @@ try {
   await assert.rejects(createArchiveBundle(join(privateRoot, 'escaping.json'), publicRoot), /inside/);
   console.log('PASS encryption, integrity, randomization, schema, and private-source boundaries');
 
+  // Exercise the real update command against a disposable encrypted collection.
+  const toolsRoot = join(publicRoot, 'tools');
+  await mkdir(toolsRoot);
+  await mkdir(join(publicRoot, 'public/assets'), { recursive: true });
+  for (const name of ['protect-portfolio.mjs', 'portfolio-bundle.mjs']) await writeFile(join(toolsRoot, name), await source('tools/' + name));
+  const protectedPath = join(publicRoot, 'public/assets/portfolio.enc.json');
+  await writeFile(protectedPath, JSON.stringify(encrypted));
+  const runUpdate = secret => spawnSync(process.execPath, [join(toolsRoot, 'protect-portfolio.mjs'), sourcePath], { input: secret, encoding: 'utf8' });
+  const beforeUpdate = await readFile(protectedPath, 'utf8');
+  assert.notEqual(runUpdate('incorrect').status, 0);
+  assert.equal(await readFile(protectedPath, 'utf8'), beforeUpdate, 'A mistyped password cannot replace the bundle.');
+  const update = runUpdate(password);
+  assert.equal(update.status, 0, update.stderr);
+  assert.deepEqual(JSON.parse(decrypt(JSON.parse(await readFile(protectedPath, 'utf8')), password)), bundle);
+  console.log('PASS content-update command preserves the existing password and leaves ciphertext intact on an incorrect password');
+
   const app = await harness(encrypted);
   let view = await app.mount();
   assert.equal(app.session().read(), null);
@@ -225,6 +257,30 @@ try {
   assert.equal(app.session().read(), null);
   assert.equal(view.root.dataset.state, 'locked');
   console.log('PASS real Web Crypto unlock, retry, entrance sequence, safe rendering, private navigation, attachment decoding, and lock cleanup');
+
+  await app.session().unlock(password);
+  view = await app.mount('portfolio');
+  const stableRoot = view.root;
+  assert.equal(app.window.history.scrollRestoration, 'manual');
+  assert.equal(app.visit('portfolio-work.html').defaultPrevented, true);
+  assert.equal(view.root, stableRoot);
+  assert.equal(view.content.querySelectorAll('h1')[0].textContent, 'work');
+  view.main.scrollTop = 230;
+  app.visit('portfolio-research.html');
+  assert.equal(app.pop('portfolio-work.html'), true);
+  assert.equal(view.main.scrollTop, 230, 'Back restores the private scroll position.');
+  assert.equal(view.root.dataset.state, 'unlocked');
+  assert.equal(view.content.hidden, false);
+  app.visit('portfolio-entry.html?entry=e0');
+  assert.equal(view.content.querySelectorAll('h1')[0].textContent, 'Private work title');
+  assert.equal(app.visit('portfolio-life.html', { ctrlKey: true }).defaultPrevented, undefined);
+  assert.equal(app.visit('interests.html').defaultPrevented, undefined);
+  app.session().lock();
+  assert.equal(app.window.history.scrollRestoration, 'auto');
+  assert.equal(app.pop('portfolio-life.html'), false, 'Locked history stays with the shared router.');
+  app.cleanup();
+  assert.equal(app.window.MWPortfolioNavigation, undefined);
+  console.log('PASS in-place portfolio navigation, stable unlocked root, case studies, back/forward routing, scroll restoration, modified clicks, and history-hook cleanup');
 
   await app.session().unlock(password);
   app.session().assetUrl('note');
@@ -277,6 +333,11 @@ try {
     assert.match(html, /<title>michael w\.<\/title>/);
     assert.ok(html.indexOf('src="portfolio-session.js') < html.indexOf('src="portfolio.js'));
     assert.ok(html.indexOf('src="portfolio-renderer.js') < html.indexOf('src="portfolio.js'));
+    assert.ok(html.indexOf('src="portfolio.js') < html.indexOf('src="portfolio-background.js'));
+    assert.match(html, /id="portfolio-background-canvas"/);
+    assert.doesNotMatch(html, /ascii-art|ascii-magic\/runtime\/ascii\.js/);
+    assert.match(html, /<input\b[^>]*id="portfolio-password"[^>]*\bdisabled\b/);
+    assert.match(html, /<button\b[^>]*id="portfolio-submit"[^>]*\bdisabled\b/);
     assert.doesNotMatch(html, /href="life\.html"/);
     assert.doesNotMatch(html, /life-events|private attachment sentinel/);
   }
@@ -285,6 +346,39 @@ try {
   assert.doesNotMatch(redirect, /life-events|<time\b/);
   for (const filename of ['index.html', 'interests.html', 'manifesto.html', 'contact.html']) assert.doesNotMatch(await source(filename), /href="life\.html"/);
   console.log('PASS protected direct-entry shells, public menus, and the legacy Life redirect');
+
+  if (process.argv[2]) {
+    const collection = await createArchiveBundle(process.argv[2], site);
+    const real = await harness(encryptArchive(collection, password));
+    await real.mount();
+    await real.session().unlock(password);
+    for (const section of ['portfolio', 'work', 'research', 'life', 'archive']) {
+      const mounted = await real.mount(section);
+      assert.equal(mounted.root.dataset.state, 'unlocked');
+      assert.equal(mounted.content.querySelectorAll('h1')[0].textContent, section);
+      for (const anchor of mounted.content.querySelectorAll('a')) {
+        if (anchor.href.startsWith('portfolio-entry.html?entry=')) {
+          const id = new URL(anchor.href, 'http://localhost/').searchParams.get('entry');
+          assert.ok(collection.entries.some(entry => entry.id === id), 'Every collection link resolves to an entry.');
+        }
+      }
+    }
+    for (const entry of collection.entries) {
+      const mounted = await real.mount('entry', '?entry=' + entry.id);
+      assert.equal(mounted.content.querySelectorAll('h1')[0].textContent, entry.title);
+      const targets = new Set(['#portfolio-view-top', ...mounted.content.querySelectorAll('h2').map(node => '#' + node.id)]);
+      for (const anchor of mounted.content.querySelectorAll('a')) {
+        if (anchor.href.startsWith('#')) assert.ok(targets.has(anchor.href), 'Case-study navigation resolves to a heading.');
+      }
+    }
+    const missing = await real.mount('entry', '?entry=missing');
+    assert.equal(missing.content.querySelectorAll('h1')[0].textContent, 'entry unavailable');
+    real.session().lock();
+    assert.equal(missing.content.textContent, '');
+    assert.equal(real.urls.size, 0);
+    real.cleanup();
+    console.log(`PASS private source: five collection views, all ${collection.entries.length} entries, media, fragment navigation, missing entries, and lock cleanup`);
+  }
 } finally {
   // Only remove the freshly created test directory in the OS temporary folder.
   if (!isWithin(tmpdir(), temporary) || !temporary.includes('mw-archive-check-')) throw new Error('Unexpected test cleanup path.');

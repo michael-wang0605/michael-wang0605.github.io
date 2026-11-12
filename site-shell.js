@@ -546,6 +546,8 @@
   window.addEventListener('click', onClick);
 
   var onPopState = function () {
+    // An unlocked portfolio can switch its own views without rebuilding the shell.
+    if (window.MWPortfolioNavigation && window.MWPortfolioNavigation.handlePopState()) return;
     navigate(new URL(window.location.href), { history: true });
   };
 
@@ -555,5 +557,6 @@
   window.MWSiteShell = {
     navigate: navigate,
     loadScriptSource: loadScriptSource,
+    syncUrl: function () { currentUrl = new URL(window.location.href); },
   };
 }());

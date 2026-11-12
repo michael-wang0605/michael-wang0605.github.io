@@ -11,7 +11,7 @@ const MEDIA_TYPES = new Set([
   'audio/mpeg', 'audio/ogg', 'audio/wav', 'video/mp4', 'video/webm',
 ]);
 const ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
-const BLOCKS = new Set(['paragraph', 'heading', 'list', 'quote', 'media', 'gallery', 'link', 'timeline']);
+const BLOCKS = new Set(['paragraph', 'heading', 'list', 'quote', 'media', 'gallery', 'link', 'timeline', 'note', 'media-slot']);
 
 export function isWithin(parent, child) {
   const path = relative(parent, child);
@@ -34,16 +34,10 @@ export function validateArchive(data) {
   const asset = id => {
     if (!Object.hasOwn(data.assets || {}, id)) throw new Error('An entry references a missing asset.');
   };
-  for (const entry of data.entries) {
-    if (!ID.test(entry.id) || ids.has(entry.id)) throw new Error('Entry IDs must be unique, short lowercase identifiers.');
-    ids.add(entry.id);
-    if (!SECTIONS.includes(entry.section)) throw new Error('Unknown entry section.');
-    requireText(entry.title, 'Entry title');
-    requireText(entry.summary, 'Entry summary');
-    if (!Array.isArray(entry.blocks)) throw new Error('Entry blocks must be an array.');
-    for (const block of entry.blocks) {
+  const validateBlocks = blocks => {
+    for (const block of blocks) {
       if (!BLOCKS.has(block.type)) throw new Error('Unknown content block type.');
-      if (['paragraph', 'heading', 'quote'].includes(block.type)) requireText(block.text, 'Block text');
+      if (['paragraph', 'heading', 'quote', 'note', 'media-slot'].includes(block.type)) requireText(block.text, 'Block text');
       if (block.type === 'list' && (!Array.isArray(block.items) || block.items.some(item => typeof item !== 'string'))) throw new Error('List items must be text.');
       if (block.type === 'timeline' && (!Array.isArray(block.items) || block.items.some(item => typeof item.text !== 'string' || typeof item.date !== 'string'))) throw new Error('Timeline items need a date and text.');
       if (block.type === 'media') asset(block.asset);
@@ -54,6 +48,30 @@ export function validateArchive(data) {
       if (block.type === 'link') {
         requireText(block.label, 'Link label');
         if (!['http:', 'https:', 'mailto:'].includes(new URL(block.url).protocol)) throw new Error('Only web and email links are allowed.');
+      }
+    }
+  };
+  for (const entry of data.entries) {
+    if (!ID.test(entry.id) || ids.has(entry.id)) throw new Error('Entry IDs must be unique, short lowercase identifiers.');
+    ids.add(entry.id);
+    if (!SECTIONS.includes(entry.section)) throw new Error('Unknown entry section.');
+    requireText(entry.title, 'Entry title');
+    requireText(entry.summary, 'Entry summary');
+    if (entry.signal !== undefined) requireText(entry.signal, 'Entry signal');
+    if (!Array.isArray(entry.blocks)) throw new Error('Entry blocks must be an array.');
+    validateBlocks(entry.blocks);
+  }
+  for (const section of Object.values(data.sections)) {
+    if (section.blocks) {
+      if (!Array.isArray(section.blocks)) throw new Error('Section blocks must be an array.');
+      validateBlocks(section.blocks);
+    }
+    if (section.groups) {
+      if (!Array.isArray(section.groups)) throw new Error('Section groups must be an array.');
+      for (const group of section.groups) {
+        requireText(group.title, 'Group title');
+        requireText(group.empty, 'Group empty state');
+        if (!Array.isArray(group.entries) || group.entries.some(id => !ids.has(id))) throw new Error('Groups must reference existing entries.');
       }
     }
   }

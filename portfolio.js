@@ -11,11 +11,23 @@
   const lock = document.getElementById('portfolio-lock');
   const heading = document.querySelector('.portfolio-fallback-title');
   const main = document.querySelector('.portfolio-main');
-  const section = root.dataset.portfolioSection || 'portfolio';
-  const entryId = new URL(window.location.href).searchParams.get('entry');
+  let section = root.dataset.portfolioSection || 'portfolio';
+  let entryId = new URL(window.location.href).searchParams.get('entry');
+  let currentUrl = new URL(window.location.href);
+  const routes = new Map(['portfolio', 'work', 'research', 'life', 'archive', 'entry'].map(id => [
+    new URL(id === 'portfolio' ? 'portfolio.html' : `portfolio-${id}.html`, currentUrl).pathname, id,
+  ]));
+  const scrollPositions = new Map();
+  let previousScrollRestoration = null;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let busy = false, destroyed = false, attempt = 0, controller = null, disposeView = null;
   const isCurrent = () => !destroyed && root.isConnected;
+
+  function releaseHistory() {
+    if (previousScrollRestoration === null) return;
+    window.history.scrollRestoration = previousScrollRestoration;
+    previousScrollRestoration = null;
+  }
 
   function pause(duration, signal) {
     return new Promise(resolve => {
@@ -52,6 +64,7 @@
 
   function start() {
     if (!isCurrent()) return;
+    releaseHistory();
     forgetView();
     busy = false;
     form.hidden = false;
@@ -69,6 +82,10 @@
   function reveal() {
     const data = session.read();
     if (!data || !isCurrent()) return;
+    if (previousScrollRestoration === null && window.history && 'scrollRestoration' in window.history) {
+      previousScrollRestoration = window.history.scrollRestoration;
+      window.history.scrollRestoration = 'manual';
+    }
     document.body.classList.add('is-portfolio-open', 'is-portfolio-empty', 'is-portfolio-departing');
     if (heading) heading.hidden = true;
     form.hidden = true;
@@ -79,6 +96,53 @@
     main.scrollTop = 0;
     message.textContent = '';
     content.focus({ preventScroll: true });
+  }
+
+  function showRoute(url, fromHistory = false) {
+    if (!session.read() || !isCurrent()) return;
+    const previous = currentUrl.pathname + currentUrl.search;
+    const destination = url.pathname + url.search;
+    if (previous === destination) {
+      if (!fromHistory) main.scrollTop = 0;
+      currentUrl = url;
+      window.MWSiteShell?.syncUrl?.();
+      return;
+    }
+    scrollPositions.set(previous, main.scrollTop);
+    disposeView?.();
+    disposeView = null;
+    session.releaseAssets();
+    section = routes.get(url.pathname);
+    entryId = url.searchParams.get('entry');
+    root.dataset.portfolioSection = section;
+    if (!fromHistory) window.history.pushState(null, '', url.href);
+    currentUrl = url;
+    window.MWSiteShell?.syncUrl?.();
+    // Render synchronously in the existing page. No locked shell, GPU restart,
+    // empty animation frame, or full-body replacement between private views.
+    reveal();
+    main.scrollTop = fromHistory ? scrollPositions.get(destination) || 0 : 0;
+    if (url.hash) document.getElementById(url.hash.slice(1))?.scrollIntoView();
+  }
+
+  function onPortfolioClick(event) {
+    if (!session.read() || !isCurrent() || event.defaultPrevented || event.button > 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const anchor = event.target.closest?.('a');
+    if (!anchor || anchor.target || anchor.hasAttribute('download')) return;
+    const href = anchor.getAttribute('href');
+    if (!href || href.startsWith('#')) return;
+    const url = new URL(href, window.location.href);
+    if (url.origin !== window.location.origin || !routes.has(url.pathname)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    showRoute(url);
+  }
+
+  function onPortfolioPop() {
+    const url = new URL(window.location.href);
+    if (!session.read() || !isCurrent() || !routes.has(url.pathname)) return false;
+    showRoute(url, true);
+    return true;
   }
 
   async function authenticate() {
@@ -135,9 +199,15 @@
   input.addEventListener('input', () => input.removeAttribute('aria-invalid'));
   lock.addEventListener('click', () => { session.lock(); input.focus({ preventScroll: true }); });
   document.addEventListener('mw:portfolio-locked', start);
+  document.addEventListener('click', onPortfolioClick, true);
+  const navigation = Object.freeze({ handlePopState: onPortfolioPop });
+  window.MWPortfolioNavigation = navigation;
   window.MWPageLifecycle.addCleanup(() => {
     destroyed = true;
+    releaseHistory();
     document.removeEventListener('mw:portfolio-locked', start);
+    document.removeEventListener('click', onPortfolioClick, true);
+    if (window.MWPortfolioNavigation === navigation) delete window.MWPortfolioNavigation;
     forgetView();
     document.body.classList.remove('is-portfolio-open', 'is-portfolio-departing', 'is-portfolio-empty');
     // Also close on public navigation through an older, already-open site shell.
