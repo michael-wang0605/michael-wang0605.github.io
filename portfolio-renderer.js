@@ -1,6 +1,8 @@
 (() => {
   'use strict';
-  const sections = ['work', 'research', 'life', 'archive'];
+  const sections = ['work', 'research', 'side-quests', 'life', 'archive'];
+  const label = id => id === 'side-quests' ? 'side quests' : id;
+  const years = value => [...new Set(String(value || '').match(/\b(?:19|20)\d{2}\b/g) || [])].join('–');
   const page = id => id === 'portfolio' ? 'portfolio.html' : `portfolio-${id}.html`;
   const entryPage = id => `portfolio-entry.html?entry=${encodeURIComponent(id)}`;
 
@@ -101,8 +103,9 @@
         timeline.setAttribute('aria-label', 'Life timeline');
         block.items.forEach(item => {
           const moment = el('li');
-          const date = el('time', '', item.date);
-          if (/^\d{4}(-\d{2})?(-\d{2})?$/.test(item.datetime || '')) date.dateTime = item.datetime;
+          const date = el('time', '', years(item.date));
+          const year = years(item.datetime);
+          if (/^\d{4}$/.test(year)) date.dateTime = year;
           const story = el('div');
           story.append(el('p', '', item.text));
           if (item.note) story.append(el('p', 'archive-muted', item.note));
@@ -131,15 +134,16 @@
       parent.append(el('p', 'archive-empty', 'Nothing collected here yet.'));
       return;
     }
-    const list = el('ol', `archive-entries${section === 'archive' ? ' archive-compact' : ''}${section === 'research' ? ' archive-research' : ''}`);
+    const list = el('ol', `archive-entries${section === 'archive' || section === 'side-quests' ? ' archive-compact' : ''}${section === 'research' ? ' archive-research' : ''}${section === 'side-quests' ? ' archive-quests' : ''}`);
     for (const [number, entry] of entries.entries()) {
       const row = el('li');
       const anchor = entry.inline ? el('div', 'archive-entry-link archive-inline-entry') : link('', entryPage(entry.id), 'archive-entry-link');
-      const index = el('span', 'archive-entry-meta', entry.date || entry.kind || '');
+      const index = el('span', 'archive-entry-meta', years(entry.date));
       if (section === 'work' || section === 'research') {
         index.textContent = '';
-        index.append(el('span', 'archive-entry-number', String(number + 1).padStart(2, '0') + ' /'), el('span', '', entry.date));
+        index.append(el('span', 'archive-entry-number', String(number + 1).padStart(2, '0') + ' /'), el('span', '', years(entry.date)));
       }
+      if (entry.status && section !== 'side-quests') index.append(el('span', 'archive-entry-status', entry.status));
       const copy = el('div', 'archive-entry-copy');
       copy.append(el('h2', '', entry.title));
       if (entry.kind && !entry.secondary) copy.append(el('span', 'archive-entry-kind', entry.kind));
@@ -156,6 +160,7 @@
   }
 
   function render(container, data, { section = 'portfolio', entryId, assetUrl, lockButton }) {
+    const previousNavScroll = container.querySelector?.('.archive-nav')?.scrollLeft || 0;
     container.replaceChildren();
     const entry = section === 'entry' ? data.entries.find(item => item.id === entryId) : null;
     const activeSection = entry?.section || section;
@@ -167,7 +172,7 @@
     const nav = el('nav', 'archive-nav');
     nav.setAttribute('aria-label', 'Portfolio sections');
     for (const id of ['portfolio', ...sections]) {
-      const anchor = link(id === 'portfolio' ? 'index' : id, page(id));
+      const anchor = link(id === 'portfolio' ? 'index' : label(id), page(id));
       if (activeSection === id) anchor.setAttribute('aria-current', 'page');
       nav.append(anchor);
     }
@@ -196,7 +201,7 @@
         const row = el('li');
         const anchor = link('', page(id));
         const text = el('div', 'archive-section-copy');
-        text.append(el('h2', '', id), el('p', '', data.sections[id].description.split(/\n\s*\n/)[0]));
+        text.append(el('h2', '', label(id)), el('p', '', data.sections[id].description.split(/\n\s*\n/)[0]));
         const detail = el('span', 'archive-section-count', '→');
         detail.setAttribute('aria-hidden', 'true');
         anchor.append(el('span', 'archive-number', String(number + 1).padStart(2, '0')), text, detail);
@@ -205,7 +210,7 @@
       });
       container.append(index);
     } else if (sections.includes(section)) {
-      header(container, '', section, data.sections[section].description);
+      header(container, '', label(section), data.sections[section].description);
       const entries = data.entries.filter(item => item.section === section);
       if (section === 'life' && data.sections.life.groups?.length) {
         const jumps = el('nav', 'archive-jumps');
@@ -251,9 +256,9 @@
       const layout = el('div', 'archive-reading-layout');
       const reading = el('div', 'archive-reading-copy');
       const rail = el('aside', 'archive-reading-rail');
-      const back = link('← all ' + entry.section, page(entry.section), 'archive-back');
+      const back = link('← all ' + label(entry.section), page(entry.section), 'archive-back');
       reading.append(back);
-      header(reading, [entry.kind || entry.section, entry.date].filter(Boolean).join(' · '), entry.title, entry.summary);
+      header(reading, [entry.kind || label(entry.section), years(entry.date), entry.status].filter(Boolean).join(' · '), entry.title, entry.summary);
       if (entry.signal) reading.append(el('p', 'archive-entry-signal archive-detail-signal', entry.signal));
       if (entry.metadata?.length) {
         const metadata = el('dl', 'archive-metadata');
@@ -304,6 +309,12 @@
     const footer = el('footer', 'archive-footer');
     footer.append(link('↑ back to top', '#portfolio-view-top'));
     container.append(footer);
+    if (typeof nav.clientWidth === 'number') {
+      nav.scrollLeft = previousNavScroll;
+      const active = Array.from(nav.children).find(node => node.getAttribute('aria-current') === 'page');
+      if (active && active.offsetLeft < nav.scrollLeft) nav.scrollLeft = active.offsetLeft;
+      if (active && active.offsetLeft + active.offsetWidth > nav.scrollLeft + nav.clientWidth) nav.scrollLeft = active.offsetLeft + active.offsetWidth - nav.clientWidth;
+    }
     return () => {
       container.querySelectorAll('audio, video').forEach(player => { player.pause(); player.removeAttribute('src'); player.load(); });
       container.replaceChildren();

@@ -85,6 +85,10 @@
   display: none !important;
 }
 
+.portfolio-page #portfolio-cv[hidden] {
+  display: none !important;
+}
+
 .portfolio-password-form {
   display: flex;
   align-items: center;
@@ -305,11 +309,9 @@
   height: 52px;
   margin-bottom: 40px;
   border-bottom: 1px solid rgba(255, 255, 255, .18);
-  background: rgba(0, 0, 0, .38);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: transparent;
 }
-.portfolio-page .archive-nav { display: flex; flex: 1; align-self: stretch; min-width: 0; gap: 28px; font: 12px var(--archive-mono); }
+.portfolio-page .archive-nav { position: relative; display: flex; flex: 1; align-self: stretch; min-width: 0; gap: 28px; font: 12px var(--archive-mono); }
 .portfolio-page .archive-nav a {
   position: relative;
   display: flex;
@@ -405,6 +407,7 @@
 }
 .portfolio-page .archive-entry-meta { padding-top: 4px; color: #999; font: 10px/1.8 var(--archive-mono); }
 .portfolio-page .archive-entry-number { display: block; margin-bottom: 8px; color: #ccc; }
+.portfolio-page .archive-entry-status { display: block; margin-top: 7px; color: #c5c5c5; font: 10px/1.7 var(--archive-mono); }
 .portfolio-page .archive-entry-copy h2 { margin: 0 0 7px; font-size: 24px; font-weight: 400; line-height: 1.3; }
 .portfolio-page .archive-entry-kind { display: block; margin-bottom: 10px; color: #aaa; font: 11px/1.7 var(--archive-mono); }
 .portfolio-page .archive-entry-copy p { max-width: 64ch; margin: 0; font-size: 14px; line-height: 1.8; }
@@ -416,6 +419,7 @@
 .portfolio-page .archive-compact .archive-entry-copy h2 { font-size: 18px; }
 .portfolio-page .archive-compact .archive-entry-copy p { font-size: 13px; }
 .portfolio-page .archive-compact .archive-entry-kind { display: none; }
+.portfolio-page .archive-quests .archive-entry-kind { display: block; }
 .portfolio-page .archive-subheading,
 .portfolio-page .archive-life-group > h2 { margin: 36px 0 20px; color: #bbb; font: 12px var(--archive-mono); }
 .portfolio-page .archive-reference-shelf { margin-top: 32px; }
@@ -491,7 +495,9 @@
 }
 @media (max-width:600px) {
   .portfolio-page .archive-toolbar { gap: 12px; height: 48px; margin-bottom: 28px; }
-  .portfolio-page .archive-nav { justify-content: space-between; gap: 8px; font-size: 11px; }
+  .portfolio-page .archive-nav { justify-content: flex-start; gap: 16px; font-size: 11px; overflow-x: auto; scrollbar-width: none; }
+  .portfolio-page .archive-nav::-webkit-scrollbar { display: none; }
+  .portfolio-page .archive-nav a::after { bottom: 0; }
   .portfolio-page .archive-lock-label { display: none; }
   .portfolio-page .archive-heading h1 { font-size: 40px; }
   .portfolio-page .archive-heading { margin-bottom: 26px; }

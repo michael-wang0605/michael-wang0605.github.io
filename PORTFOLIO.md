@@ -1,82 +1,87 @@
 # Private portfolio
 
-The portfolio uses the site's existing type and monochrome palette, with the
-original Life starfield behind both the password entrance and unlocked views.
-Content and attachments remain encrypted. Public pages and shared styling are
-unchanged; nothing is deployed by the local editing tools.
+The portfolio retains the existing typography, monochrome palette, editorial
+lists, and continuous Life starfield. All collection content and attachments
+are encrypted. Unrelated public pages and shared styles are unchanged.
 
-## Routes
+## Routes and entries
 
-- `portfolio.html`: short introduction and four collection links.
-- `portfolio-work.html`: Defense, Treasury, NOVA, and ESTO.
-- `portfolio-research.html`: ferroptosis, LLM bias research, and a working paper.
-- `portfolio-life.html`: the actual photograph, timeline, and event notes.
-- `portfolio-archive.html`: compact project notes and expandable documents.
+- `portfolio.html`: index of five collections.
+- `portfolio-work.html`: Defense / CDAO, Treasury, Zontra, and ESTO.
+- `portfolio-research.html`: ferroptosis and multimodal AI bias research.
+- `portfolio-side-quests.html`: hackathons, projects, an award, and a working paper.
+- `portfolio-life.html`: the actual photograph, year-only timeline, and event links.
+- `portfolio-archive.html`: earlier experiments and sanitized reference documents.
 - `portfolio-entry.html?entry=ID`: reusable detail view.
 
-All 17 entry IDs remain valid. Work: `w05`, `w01`, `w03`, `w02`; Research:
-`r02`, `r01`, `r03`; Life: `l02`, `l01`; Archive: `a03`–`a07`; documents / earlier
-versions: `w04`, `a01`, `a02`. No existing public route was renamed or replaced.
-`life.html` already redirected into the portfolio before this task and remains
-byte-for-byte unchanged, as does `life-background.js`.
+All 17 previous entry URLs remain valid, with two additions (19 total):
 
-## Editing content
+- Work: `w05`, `w01`, `w03`, `w02`.
+- Research: `r02`, `r01`.
+- Side Quests: `a04`, `q02`, `a05`, `a06`, `r03`, `q01`.
+- Life: `l02`, `l01`.
+- Archive: `a03`, `a07`, `w04`, `a01`, `a02`.
 
-The source is outside the served repository:
+Projects moved to Side Quests were updated rather than duplicated. Existing
+public routes were not renamed. `life.html` already redirected into the portfolio
+before this task; that file and `life-background.js` remain unchanged.
 
-`../personal-website-private/archive/archive.json`
+## Content source
 
-Its `assets/` directory contains the actual attachments. Never move private
-source into this site, even into an ignored folder: the HTTP server can serve it.
-Backups before the CV review and editorial cleanup are stored beside the source.
+Edit `../personal-website-private/archive/archive.json`, outside the HTTP-served
+repository. Its `assets/` directory contains the private attachment sources.
+Backups before each content review remain beside it. Never move private source
+under the website, even into an ignored folder: HTTP can still serve that folder.
 
-Each entry has `id`, `section`, `title`, `date`, `kind`, `summary`, `metadata`, and
-`blocks`. Array order controls listing and previous / next order. Useful options:
+Entries have `id`, `section`, `title`, `date`, `kind`, `summary`, `metadata`, and
+`blocks`. Dates must be years or year ranges only (or blank if undocumented).
+Optional `status` is `Current`, `Previously`, or `Operationally passive`.
+Array order controls listing and previous / next order.
 
-- `signal`: a short, supported credential or project milestone.
-- `secondary: true`: a Research entry on the working-papers shelf.
-- `reference: true`: an Archive entry inside the documents disclosure.
-- `inline: true`: a short note shown directly in the list instead of an extra click.
+Optional fields:
 
-The top-level `credentialLine` is an optional overview line. `sections` contains
-descriptions, optional media `blocks`, and Life `groups` referencing entry IDs.
-Empty groups are omitted. Do not add placeholder headings or media slots just
-to fill out a case study; add actual materials when available.
+- `signal`: a concise, supported project detail.
+- `secondary: true`: a separate shelf inside a collection.
+- `reference: true`: an Archive reference inside a collapsed documents section.
+- `inline: true`: a short note shown directly in a list.
+
+Sections have `description`, optional media `blocks`, and optional Life `groups`
+that reference existing entry IDs. Empty groups are omitted. Do not add empty
+case-study headings or simulated media merely to fill space.
 
 Block types: `paragraph`, `heading`, `list`, `quote`, `link`, `media`, `gallery`,
-`timeline`, `note`, and `media-slot`. A note with `collapsed: true` becomes an
-expandable disclosure, useful for research context or metric definitions. Lists
-use `items`; other text blocks use `text`. A link needs `label` and `url`.
-Media references an ID in `assets`; galleries contain media items. Images display
-without download clutter unless `download: true` is set. Other attachments retain
-download links. HTML snapshots are download-only.
+`timeline`, `note`, and `media-slot`. A note with `collapsed: true` is expandable.
+Text blocks use `text`; lists use `items`; external links use `label` and `url`.
+Media references an ID in `assets`. Images have no download clutter unless
+`download: true` is set. Other attachments retain download links.
 
-The UI uses one sticky navigation row, concise entry summaries, a reading column,
-and previous / next links. Entries with more than three headings have optional
-collapsed contents. Archive notes are inline; older documents are collapsed.
-The CSS is consolidated and scoped to the portfolio.
+The thin sticky section bar and previous / next links remain. On narrow screens
+the section row scrolls horizontally and brings the current section into view.
+All new styles and renderer behavior are portfolio-specific.
 
-## Evidence and copy
+## Accuracy and privacy
 
-Titles and month-level periods match the repository CV. The stronger editorial
-pass foregrounds CV-supported appointments, selections, technical work, and pilot
-milestones. It does not turn a pilot into revenue, assets into company valuation,
-or a prototype into a production deployment. The CV remains the source of these
-claims, not independent verification. Full provenance is stored privately in
-`editorialSources`, which is stripped from the encrypted published bundle.
+The latest owner instructions govern roles, statuses, naming, prospective
+relationships, and experimental findings. Government descriptions stay high-level.
+Unverified older research numbers remain only in private provenance pending
+underlying evaluation support. No deployments, realized savings, signed customers,
+clinical validation, or publication status are inferred.
 
-CV experiment-specific bias figures lead the research account. The earlier
-owner-supplied percentage-point / utility figures remain in collapsed evaluation
-notes with their unresolved benchmark context. The author / publication links
-previously verified against PubMed and SSRN are retained. No missing screenshots,
-architecture diagrams, methods, personal stories, or experimental data are invented.
+Public source links are included only where a project / author or award record
+was checked. Award wording conflicts and missing evidence are recorded in
+`../personal-website-private/portfolio-accuracy-review.md`. The private
+`editorialSources` object is stripped from the published encrypted bundle.
 
-Private reviews: `../personal-website-private/portfolio-cv-review.md` and the
-source's editorial provenance. The CV PDF copies are unchanged.
+Birth and childhood identifiers were removed from the portfolio timeline. Raw
+CV / old HTML downloads were replaced by sanitized text references. Originals
+remain backed up outside the website. Photo metadata was stripped with identical
+decoded pixels. The portfolio header shows the existing `michael-wang-cv.pdf`
+link after a successful unlock and hides it again on lock. This controls the
+link's visibility; the existing public PDF is not password-protected.
+Existing public CV files used by unrelated pages are unchanged and need a
+separate privacy review; this task does not rewrite public files or Git history.
 
-## Build and verify locally
-
-There is no package manager or site build. Rebuild encrypted content with:
+## Local rebuild and checks
 
 ```powershell
 node tools/protect-portfolio.mjs ../personal-website-private/archive/archive.json
@@ -84,39 +89,28 @@ node tools/check-portfolio.mjs ../personal-website-private/archive/archive.json
 python -m http.server 8000 --bind 0.0.0.0
 ```
 
-The rebuild verifies the existing password before atomically replacing
-`public/assets/portfolio.enc.json`. A typo leaves the bundle intact. Never put a
-real password in a command argument, source, documentation, or test fixture.
+The rebuild verifies the existing password, then atomically replaces
+`public/assets/portfolio.enc.json`. A wrong password leaves it unchanged. Never
+put a real password in source, command arguments, docs, or browser fixtures.
 The optional private `rebuild-portfolio-local.py` helper provides masked local
-entry and does not print or persist the password.
+entry without printing or persisting the secret. The static site has no package
+manager or general build step. No deployment is part of this update.
 
-Node checks cover encryption / tampering, password-preserving updates, path
-boundaries, all entry views, links, attachments, locking, reduced motion, stable
-in-place navigation, history, and cleanup. Private browser review scripts test
-real rendering with an intercepted encrypted test copy of the source; they never
-replace the real bundle with a synthetic password.
+Node checks cover encryption, tampering, private paths, year-only dates, statuses,
+all seven protected shells, all 19 entries, in-place navigation, Side Quests
+session retention, history, assets, locking, and cleanup. Private browser checks
+use an intercepted encrypted test copy without replacing real ciphertext. They
+cover desktop / tablet / mobile, actual images, sanitized downloads, scrollable
+navigation, year-only / privacy audits, statuses, history, lock, refresh, and exit.
 
-Completed checks include all 17 entries at 1440 / 390 / 320 px, navigation at
-1024 px, frame sampling for flicker, normal and reduced-motion starfields,
-disclosures, media, public exit, refresh, and authentication. Public source files
-and CV copies retain their original hashes. The encrypted bundle was rebuilt
-with the existing password; no deployment was performed.
+Private views keep the same root, starfield canvas, and lifecycle. The only prior
+shared-script exception remains the small guarded portfolio history hook in
+`site-shell.js`; this update does not change it. Public navigation still clears
+the private session. Keys, passwords, and plaintext are not persisted in browser
+storage, and attachment Blob URLs are revoked when discarded.
 
-## Navigation and security
-
-Private views render synchronously in the same root, retaining the canvas and
-lifecycle. Back / forward restores reading position. Public exit, refresh,
-pagehide, and lock clear decrypted content; no passwords, keys, or plaintext are
-stored in browser persistence. Blob attachment URLs are revoked when discarded.
-
-The only shared-script exception remains three lines in `site-shell.js`: a
-guarded portfolio history hook, its comment, and URL synchronization. Public /
-locked routes decline the hook and use the existing router. Original vs updated
-public navigation, history, typography, and geometry matched in browser checks.
-
-Protection is browser-side AES-256-GCM encryption with PBKDF2-SHA-256 (600,000
-iterations), not server-side authorization. Ciphertext can be downloaded for
-offline password guessing; security depends on the password and host / script
-integrity. Already public CVs, images, or Git history are not made private by
-bundling encrypted copies. The existing encryption format and password flow are
-unchanged.
+Protection remains browser-side AES-256-GCM with PBKDF2-SHA-256 (600,000
+iterations), not server-side authorization. Downloadable ciphertext can be
+subjected to offline password guessing; security depends on the password and
+host / script integrity. Already public files and history are not made private
+by including sanitized copies in this collection.

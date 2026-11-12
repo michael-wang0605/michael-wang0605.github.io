@@ -4,7 +4,7 @@
     window.MWPortfolioSession.preparePage();
     return;
   }
-  const pages = new Set(['portfolio.html', 'portfolio-work.html', 'portfolio-research.html', 'portfolio-life.html', 'portfolio-archive.html', 'portfolio-entry.html'].map(page => new URL(page, window.location.href).pathname));
+  const pages = new Set(['portfolio.html', 'portfolio-work.html', 'portfolio-research.html', 'portfolio-side-quests.html', 'portfolio-life.html', 'portfolio-archive.html', 'portfolio-entry.html'].map(page => new URL(page, window.location.href).pathname));
   const assetTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif', 'application/pdf', 'application/octet-stream', 'text/plain', 'text/markdown', 'text/csv', 'audio/mpeg', 'audio/ogg', 'audio/wav', 'video/mp4', 'video/webm']);
   let data = null, generation = 0;
   const urls = new Map();
@@ -60,7 +60,7 @@
     } finally {
       new Uint8Array(plaintext).fill(0);
     }
-    if (collection.format !== 'mw-archive' || collection.version !== 1 || !Array.isArray(collection.entries) || !['work', 'research', 'life', 'archive'].every(id => collection.sections?.[id])) throw new Error('The collection could not be read.');
+    if (collection.format !== 'mw-archive' || collection.version !== 1 || !Array.isArray(collection.entries) || !['work', 'research', 'side-quests', 'life', 'archive'].every(id => collection.sections?.[id])) throw new Error('The collection could not be read.');
     for (const asset of Object.values(collection.assets || {})) {
       if (!assetTypes.has(asset.type) || typeof asset.base64 !== 'string' || typeof asset.name !== 'string') throw new Error('The collection contains an unsupported attachment.');
     }

@@ -99,8 +99,10 @@ async function harness(payload) {
     cleanups.forEach(fn => fn());
     cleanups = [];
     if (current) current.root.isConnected = false;
-    const nodes = Object.fromEntries(['portfolio-root', 'portfolio-form', 'portfolio-password', 'portfolio-submit', 'portfolio-message', 'portfolio-content', 'portfolio-lock'].map(id => [id, new Element()]));
+    const nodes = Object.fromEntries(['portfolio-root', 'portfolio-form', 'portfolio-password', 'portfolio-submit', 'portfolio-message', 'portfolio-content', 'portfolio-lock', 'portfolio-cv'].map(id => [id, new Element()]));
     const body = new Element('body'), main = new Element('main'), heading = new Element('h1');
+    nodes['portfolio-cv'].hidden = true;
+    body.append(nodes['portfolio-cv']);
     nodes['portfolio-root'].dataset.portfolioSection = section;
     body.append(main);
     main.append(heading, nodes['portfolio-root']);
@@ -161,9 +163,9 @@ try {
   await mkdir(publicRoot);
   await writeFile(join(privateRoot, 'note.txt'), 'private attachment sentinel');
   await writeFile(join(privateRoot, 'photo.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jD1kAAAAASUVORK5CYII=', 'base64'));
-  const sections = Object.fromEntries(['work', 'research', 'life', 'archive'].map(id => [id, { description: `Private ${id} description.` }]));
+  const sections = Object.fromEntries(['work', 'research', 'side-quests', 'life', 'archive'].map(id => [id, { description: `Private ${id} description.` }]));
   const fixture = { format: 'mw-archive', version: 1, introduction: 'Private introduction.', sections,
-    entries: Object.keys(sections).map((section, index) => ({ id: `e${index}`, section, title: `Private ${section} title`, summary: 'Private summary.', date: 'test period', kind: 'test record',
+    entries: Object.keys(sections).map((section, index) => ({ id: `e${index}`, section, title: `Private ${section} title`, summary: 'Private summary.', date: '2026', kind: 'test record',
       metadata: [{ label: 'test', value: 'private metadata' }], blocks: [{ type: 'paragraph', text: '<script>private text, never executable</script>' }] })),
     assets: { note: { file: 'note.txt', name: 'note.txt', type: 'text/plain' }, photo: { file: 'photo.png', name: 'photo.png', type: 'image/png' } },
     editorialSources: 'Must not be published in the bundle.'
@@ -190,6 +192,10 @@ try {
   assert.throws(() => validateArchive(invalid));
   const missing = structuredClone(fixture); missing.entries[0].blocks.push({ type: 'media', asset: 'missing' });
   assert.throws(() => validateArchive(missing));
+  const preciseDate = structuredClone(fixture); preciseDate.entries[0].date = 'June 2026';
+  assert.throws(() => validateArchive(preciseDate), /years only/);
+  const invalidStatus = structuredClone(fixture); invalidStatus.entries[0].status = 'Live';
+  assert.throws(() => validateArchive(invalidStatus), /status/);
   await writeFile(join(publicRoot, 'archive.json'), JSON.stringify(fixture));
   await assert.rejects(createArchiveBundle(join(publicRoot, 'archive.json'), publicRoot), /outside/);
   await writeFile(join(temporary, 'outside.txt'), 'outside');
@@ -219,11 +225,14 @@ try {
   assert.equal(app.session().read(), null);
   assert.equal(view.content.hidden, true);
   assert.equal(view.content.textContent, '');
+  assert.equal(view.nodes['portfolio-cv'].hidden, true);
+  assert.equal(view.nodes['portfolio-cv'].hasAttribute('href'), false);
   app.submit('incorrect');
   await app.until(() => view.nodes['portfolio-message'].textContent.includes('Incorrect password'));
   assert.equal(view.root.dataset.state, 'locked');
   assert.equal(view.nodes['portfolio-password'].disabled, false);
   assert.equal(app.session().read(), null);
+  assert.equal(view.nodes['portfolio-cv'].hidden, true);
   app.submit(password);
   assert.equal(view.nodes['portfolio-password'].value, '');
   await app.until(() => view.root.dataset.state === 'fading');
@@ -231,15 +240,22 @@ try {
   await app.flush(380);
   assert.equal(view.root.dataset.state, 'departing');
   assert.equal(view.content.hidden, true);
+  assert.equal(view.nodes['portfolio-cv'].hidden, true);
   await app.flush(2300);
   assert.equal(view.root.dataset.state, 'unlocked');
+  assert.equal(view.nodes['portfolio-cv'].hidden, false);
+  assert.equal(view.nodes['portfolio-cv'].getAttribute('href'), 'michael-wang-cv.pdf');
   assert.ok(view.body.classList.contains('is-portfolio-open'));
   assert.equal(view.content.querySelectorAll('h1')[0].textContent, 'portfolio');
   for (const section of Object.keys(sections)) assert.ok(view.content.querySelectorAll('a').some(anchor => anchor.href === `portfolio-${section}.html`));
   app.window.emit('mw:page-leave', { url: 'http://localhost:8000/portfolio-work.html' });
   view = await app.mount('work');
   assert.equal(view.root.dataset.state, 'unlocked', 'Private navigation retains the in-memory session.');
+  assert.equal(view.nodes['portfolio-cv'].hidden, false);
+  assert.equal(view.nodes['portfolio-cv'].getAttribute('href'), 'michael-wang-cv.pdf');
   assert.equal(view.content.querySelectorAll('h1')[0].textContent, 'work');
+  app.window.emit('mw:page-leave', { url: 'http://localhost:8000/portfolio-side-quests.html' });
+  assert.ok(app.session().read(), 'Side Quests keeps the authenticated in-memory session.');
   view = await app.mount('entry', '?entry=e0');
   assert.equal(view.content.querySelectorAll('h1')[0].textContent, 'Private work title');
   assert.ok(view.content.textContent.includes('<script>private text, never executable</script>'));
@@ -251,6 +267,8 @@ try {
   assert.equal(await app.urls.get(download.href).text(), 'private attachment sentinel');
   assert.ok(app.urls.size >= 2);
   view.nodes['portfolio-lock'].dispatchEvent({ type: 'click' });
+  assert.equal(view.nodes['portfolio-cv'].hidden, true);
+  assert.equal(view.nodes['portfolio-cv'].hasAttribute('href'), false);
   assert.equal(view.content.hidden, true);
   assert.equal(view.content.textContent, '');
   assert.equal(app.urls.size, 0);
@@ -325,7 +343,7 @@ try {
   app.cleanup();
   console.log('PASS public-page exit, exact route boundaries, pagehide, late-unlock cancellation, interrupted departure, and reduced motion');
 
-  for (const section of ['portfolio', 'work', 'research', 'life', 'archive', 'entry']) {
+  for (const section of ['portfolio', 'work', 'research', 'side-quests', 'life', 'archive', 'entry']) {
     const filename = section === 'portfolio' ? 'portfolio.html' : `portfolio-${section}.html`;
     const html = await source(filename);
     assert.ok(html.includes(`data-portfolio-section="${section}"`));
@@ -335,6 +353,8 @@ try {
     assert.ok(html.indexOf('src="portfolio-renderer.js') < html.indexOf('src="portfolio.js'));
     assert.ok(html.indexOf('src="portfolio.js') < html.indexOf('src="portfolio-background.js'));
     assert.match(html, /id="portfolio-background-canvas"/);
+    assert.match(html, /<a id="portfolio-cv" target="_blank" rel="noreferrer" hidden>cv<\/a>/);
+    assert.doesNotMatch(html, /<a[^>]*>summary<\/a>/);
     assert.doesNotMatch(html, /ascii-art|ascii-magic\/runtime\/ascii\.js/);
     assert.match(html, /<input\b[^>]*id="portfolio-password"[^>]*\bdisabled\b/);
     assert.match(html, /<button\b[^>]*id="portfolio-submit"[^>]*\bdisabled\b/);
@@ -352,10 +372,10 @@ try {
     const real = await harness(encryptArchive(collection, password));
     await real.mount();
     await real.session().unlock(password);
-    for (const section of ['portfolio', 'work', 'research', 'life', 'archive']) {
+    for (const section of ['portfolio', 'work', 'research', 'side-quests', 'life', 'archive']) {
       const mounted = await real.mount(section);
       assert.equal(mounted.root.dataset.state, 'unlocked');
-      assert.equal(mounted.content.querySelectorAll('h1')[0].textContent, section);
+      assert.equal(mounted.content.querySelectorAll('h1')[0].textContent, section === 'side-quests' ? 'side quests' : section);
       for (const anchor of mounted.content.querySelectorAll('a')) {
         if (anchor.href.startsWith('portfolio-entry.html?entry=')) {
           const id = new URL(anchor.href, 'http://localhost/').searchParams.get('entry');
@@ -377,7 +397,7 @@ try {
     assert.equal(missing.content.textContent, '');
     assert.equal(real.urls.size, 0);
     real.cleanup();
-    console.log(`PASS private source: five collection views, all ${collection.entries.length} entries, media, fragment navigation, missing entries, and lock cleanup`);
+    console.log(`PASS private source: six collection views, all ${collection.entries.length} entries, media, fragment navigation, missing entries, and lock cleanup`);
   }
 } finally {
   // Only remove the freshly created test directory in the OS temporary folder.

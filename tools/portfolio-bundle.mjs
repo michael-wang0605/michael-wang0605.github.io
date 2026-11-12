@@ -2,7 +2,7 @@ import { readFile, realpath } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { createCipheriv, pbkdf2Sync, randomBytes } from 'node:crypto';
 
-export const SECTIONS = ['work', 'research', 'life', 'archive'];
+export const SECTIONS = ['work', 'research', 'side-quests', 'life', 'archive'];
 export const AAD = 'michael-w-archive-v2';
 export const ITERATIONS = 600000;
 const MEDIA_TYPES = new Set([
@@ -57,6 +57,8 @@ export function validateArchive(data) {
     if (!SECTIONS.includes(entry.section)) throw new Error('Unknown entry section.');
     requireText(entry.title, 'Entry title');
     requireText(entry.summary, 'Entry summary');
+    if (entry.date && !/^\d{4}(?:–\d{4})?$/.test(entry.date)) throw new Error('Entry dates must contain years only.');
+    if (entry.status && !['Current', 'Previously', 'Operationally passive'].includes(entry.status)) throw new Error('Unknown experience status.');
     if (entry.signal !== undefined) requireText(entry.signal, 'Entry signal');
     if (!Array.isArray(entry.blocks)) throw new Error('Entry blocks must be an array.');
     validateBlocks(entry.blocks);

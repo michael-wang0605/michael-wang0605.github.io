@@ -9,12 +9,13 @@
   const message = document.getElementById('portfolio-message');
   const content = document.getElementById('portfolio-content');
   const lock = document.getElementById('portfolio-lock');
+  const cv = document.getElementById('portfolio-cv');
   const heading = document.querySelector('.portfolio-fallback-title');
   const main = document.querySelector('.portfolio-main');
   let section = root.dataset.portfolioSection || 'portfolio';
   let entryId = new URL(window.location.href).searchParams.get('entry');
   let currentUrl = new URL(window.location.href);
-  const routes = new Map(['portfolio', 'work', 'research', 'life', 'archive', 'entry'].map(id => [
+  const routes = new Map(['portfolio', 'work', 'research', 'side-quests', 'life', 'archive', 'entry'].map(id => [
     new URL(id === 'portfolio' ? 'portfolio.html' : `portfolio-${id}.html`, currentUrl).pathname, id,
   ]));
   const scrollPositions = new Map();
@@ -69,6 +70,10 @@
     busy = false;
     form.hidden = false;
     lock.hidden = true;
+    if (cv) {
+      cv.hidden = true;
+      cv.removeAttribute('href');
+    }
     root.dataset.state = 'locked';
     root.setAttribute('aria-label', 'Private portfolio');
     resetScene();
@@ -92,6 +97,10 @@
     root.dataset.state = 'unlocked';
     root.setAttribute('aria-label', 'Portfolio collection');
     content.hidden = false;
+    if (cv) {
+      cv.setAttribute('href', 'michael-wang-cv.pdf');
+      cv.hidden = false;
+    }
     disposeView = window.MWPortfolioRenderer.render(content, data, { section, entryId, assetUrl: session.assetUrl, lockButton: lock });
     main.scrollTop = 0;
     message.textContent = '';
